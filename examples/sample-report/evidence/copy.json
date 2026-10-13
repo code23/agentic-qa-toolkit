@@ -1,0 +1,144 @@
+{
+ "today": "2026-07-15",
+ "timezone": "Europe/London",
+ "timezone_check": "run: BST in force on 2026-07-15; flags out-of-season GMT",
+ "timezone_in_force": "BST",
+ "timezone_out_of_season": [
+  "GMT"
+ ],
+ "complete": true,
+ "pages": [
+  {
+   "url": "http://127.0.0.1:8765/index.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/index.html",
+   "title": "Tidewick Bike Works",
+   "root": "main",
+   "words": 127,
+   "rendered_words": 127,
+   "coverage": "full",
+   "personal_emails_seen": 0,
+   "flags": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/brindlemere.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/brindlemere.html",
+   "title": "Bike repair in Brindlemere",
+   "root": "main",
+   "words": 203,
+   "rendered_words": null,
+   "coverage": "full",
+   "personal_emails_seen": 0,
+   "flags": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/oakhaven.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/oakhaven.html",
+   "title": "Bike repair in Oakhaven",
+   "root": "main",
+   "words": 203,
+   "rendered_words": null,
+   "coverage": "full",
+   "personal_emails_seen": 0,
+   "flags": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/mobile-service.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/mobile-service.html",
+   "title": "Workshop opening hours",
+   "root": "main",
+   "words": 171,
+   "rendered_words": 171,
+   "coverage": "full",
+   "personal_emails_seen": 0,
+   "flags": [
+    {
+     "type": "title-slug-mismatch",
+     "slug": "mobile-service",
+     "title": "Workshop opening hours",
+     "jaccard": 0.0
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/pricing.html",
+   "title": "Pricing",
+   "root": "main",
+   "words": 75,
+   "rendered_words": 56,
+   "coverage": "full",
+   "personal_emails_seen": 2,
+   "flags": [
+    {
+     "type": "stale-quarter",
+     "text": "e confirm the cost before any work starts. Prices valid for Q1 2024 bookings. Standard service from \u00a345 \u00a339"
+    },
+    {
+     "type": "old-year",
+     "text": "une-up \u00a324 Full service \u00a395 Get a quote Last updated March 2022. TODO: remove the old price list. Owner"
+    },
+    {
+     "type": "copyright-year",
+     "text": "hello@example.com . \u00a9 2021 Tidewick Bike Works"
+    },
+    {
+     "type": "placeholder",
+     "text": "95 Get a quote Last updated March 2022. TODO: remove the old price list. Owner <emai"
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/contact.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/contact.html",
+   "title": "Contact us",
+   "root": "main",
+   "words": 54,
+   "rendered_words": 54,
+   "coverage": "full",
+   "personal_emails_seen": 0,
+   "flags": [
+    {
+     "type": "timezone-label",
+     "text": "ne working day. Lines are open Monday to Friday, 9:00-17:30 GMT. Your nam",
+     "note": "Europe/London is currently on BST; a label with no abbreviation (\"local time\") is always right"
+    },
+    {
+     "type": "placeholder",
+     "text": "oes the bike need? Send message Find us Lorem ipsum dolor sit amet, consectetur adipiscing "
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/privacy.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/privacy.html",
+   "title": "Privacy and cookies",
+   "root": "main",
+   "words": 75,
+   "rendered_words": null,
+   "coverage": "full",
+   "personal_emails_seen": 0,
+   "flags": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/chain-care-guide.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/chain-care-guide.html",
+   "title": "Chain care guide",
+   "root": "main",
+   "words": 167,
+   "rendered_words": 167,
+   "coverage": "full",
+   "personal_emails_seen": 0,
+   "flags": []
+  }
+ ],
+ "cross_page_variants": {},
+ "note": "Heuristics on served HTML. The lead confirms each flag in context before rating it. Timezone-label check: run: BST in force on 2026-07-15; flags out-of-season GMT. Pages with coverage \"limited (client-rendered)\" were not really checked."
+}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact us | Tidewick Bike Works</title>
+<meta name="description" content="Contact the workshop. Fictional demo business.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="index.html"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="8" cy="19" r="6" fill="none" stroke="#0b6e6e" stroke-width="2"/><circle cx="21" cy="19" r="6" fill="none" stroke="#0b6e6e" stroke-width="2"/><path d="M8 19 13 9h6l2 10M13 9l4 10" fill="none" stroke="#1d2a33" stroke-width="2"/></svg><span>Tidewick Bike Works</span></a>
+  <nav aria-label="Main"><a href="index.html">Home</a><a href="brindlemere.html">Brindlemere</a><a href="oakhaven.html">Oakhaven</a><a href="mobile-service.html">Mobile service</a><a href="pricing.html">Pricing</a><a href="chain-care-guide.html">Chain care</a><a href="contact.html">Contact</a><a href="privacy.html">Privacy</a></nav>
+</header>
+<div id="cookie-notice" class="cookie-banner" role="dialog" aria-label="Cookie preferences">
+  <p>Cookies help us improve this site. Do you agree to analytics cookies? <a href="privacy.html">Cookie policy</a></p>
+  <div class="cookie-actions">
+    <button type="button" class="btn" data-consent="accepted">I agree</button>
+    <button type="button" class="btn secondary" data-consent="rejected">Decline</button>
+  </div>
+</div>
+<main>
+<h1>Contact us</h1>
+<p class="lead">Tell us about your bike and we will reply within one working day.</p>
+<p>Lines are open Monday to Friday, 9:00-17:30 GMT.</p>
+<form class="contact-form" action="#" method="post" novalidate>
+  <label>Your name <input type="text" name="name" autocomplete="off"></label>
+  <label>Email address <input type="email" name="email" autocomplete="off"></label>
+  <label>What does the bike need? <textarea name="message" rows="4"></textarea></label>
+  <button type="submit" class="btn">Send message</button>
+</form>
+<h2>Find us</h2>
+<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Directions and a map will go here.</p>
+<div id="availability"></div>
+</main>
+<footer class="site-footer">
+  <p>Tidewick Bike Works is a fictional business on a demo site for the qa-toolkit. Nothing here is real.</p>
+  <p>Email <a href="mailto:hello@example.com">hello@example.com</a>.</p>
+</footer>
+<script src="assets/consent.js" data-accept-cookie="_ga" data-reject="honoured"></script>
+<script>
+// Planted faults: a console error, a failed same-origin request, and a debug element injected by script.
+console.error('Map widget failed to initialise for workshop.lead@example.com');
+fetch('/api/availability.json?session=a1b2c3d4e5f6a7b8c9d0e1f2').catch(function () {});
+var dbg = document.createElement('div');
+dbg.className = 'debug-overlay';
+dbg.style.display = 'none';
+document.getElementById('availability').appendChild(dbg);
+</script>
+</body>
+</html>

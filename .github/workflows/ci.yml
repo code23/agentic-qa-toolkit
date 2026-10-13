@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: ${{ matrix.os }}, Python ${{ matrix.python }}, Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.9", node: "20" }
+          - { os: ubuntu-latest, python: "3.13", node: "22" }
+          - { os: macos-latest, python: "3.13", node: "22" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install Python packages
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r skills/qa-site-audit/scripts/requirements.txt -r skills/qa-standards/scripts/requirements.txt
+      - name: Install Node packages
+        run: npm ci
+        working-directory: tests/node
+      - name: Find Chrome
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            echo "CHROME_PATH=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" >> "$GITHUB_ENV"
+          else
+            echo "CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          fi
+      - name: Install ShellCheck (not on the macOS image)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck
+      - name: Run every check
+        run: tools/check.sh --strict

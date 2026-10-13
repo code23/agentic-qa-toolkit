@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""qa-send: send one QA job to a hosted QA bot through its webhook.
+
+Usage: qa-send --url URL [--depth quick|deep|release] [--brief TEXT | --brief-file FILE|-]
+               [--project NAME] [--branch B] [--commit C]
+
+Config: ~/.config/qa-send/config.json (or $QA_SEND_CONFIG), readable by its owner only:
+        {"url": "https://<webhook>", "headers": {"<Header>": "<value>"}}
+
+Never put passwords, tokens, keys or customer data in any field.
+
+The checks on --url are a convenience: they refuse the obvious mistakes (local or private addresses, odd host spellings,
+credentials in the URL) but do no DNS lookup. The QA bot must enforce its own network rules.
+"""
+import argparse
+import ipaddress
+import json
+import os
+import re
+import socket
+import ssl
+import stat
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+DEPTHS = ("quick", "deep", "release")
+MAX_BRIEF = 4000
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse every redirect, so the key in the headers is never sent to a second address."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+HEADER_NAME = re.compile(r"[A-Za-z0-9!#$%&'*+.^_`|~-]+")
+HEADER_VALUE = re.compile(r"[\t\x20-\x7e\x80-\xff]*")
+
+
+def describe_failure(e):
+    """Safe one-phrase classification of a failed send. Never the exception text: it can hold header values (the key)."""
+    if isinstance(e, urllib.error.HTTPError):
+        return f"redirect refused (HTTP {e.code})" if 300 <= e.code < 400 else f"HTTP status {e.code}"
+    reason = e.reason if isinstance(e, urllib.error.URLError) else e
+    if isinstance(reason, ssl.SSLError):
+        return "TLS error"
+    if isinstance(reason, (TimeoutError, socket.timeout)):
+        return "timeout"
+    if isinstance(reason, ConnectionRefusedError):
+        return "connection refused"
+    if isinstance(reason, socket.gaierror):
+        return "host name not found"
+    if isinstance(reason, (OSError, EOFError)):
+        return "connection error"
+    return f"request could not be sent ({type(e).__name__})"
+
+
+def fail(message):
+    sys.exit(f"qa-send: {message}")
+
+
+# Query parameter names that look like credentials or session identifiers (whole-word match for the short ones).
+SECRET_NAME = re.compile(r"token|secret|password|passwd|pwd|api[-_]?key|access[-_]?key|credential|auth|signature|session"
+                         r"|(?:^|[-_.])(?:key|sig|sid|code)(?:[-_.]|$)")
+HOST_CHARS = re.compile(r"[a-z0-9.-]+")
+IPV6_CHARS = re.compile(r"[0-9a-f:.]+")
+
+
+def check_target(url):
+    target = urllib.parse.urlparse(url)
+    host = (target.hostname or "").lower().rstrip(".")
+    if target.scheme not in ("http", "https") or not host:
+        fail("--url must be an http(s) URL")
+    if target.username or target.password:
+        fail("--url must not contain a username or password")
+    if not (HOST_CHARS.fullmatch(host) or (":" in host and IPV6_CHARS.fullmatch(host))):
+        fail("--url host may only use letters, digits, '.' and '-' (or a bracketed IPv6 address); "
+             "no percent-encoding or other characters")
+    names = [k.lower() for k, _ in urllib.parse.parse_qsl(target.query, keep_blank_values=True)]
+    if any(SECRET_NAME.search(n) for n in names):
+        fail("--url carries a key or token (or a session or code value) in its query string; give a URL without one")
+    local = host == "localhost" or host.endswith((".local", ".localhost", ".internal"))
+    try:
+        ip = ipaddress.ip_address(host)
+        ip = getattr(ip, "ipv4_mapped", None) or ip
+        local = local or ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_unspecified
+    except ValueError:
+        # numeric spellings the parser rejects (2130706433, 0x7f000001, 127.1, 0177.0.0.1) still reach an address
+        local = local or bool(re.fullmatch(r"(0x[0-9a-f]+|\d+)(\.(0x[0-9a-f]+|\d+))*", host))
+    if local:
+        fail("the QA bot cannot reach a local or private address; give a public or preview URL "
+             "(this is a convenience check: the bot enforces its own network rules)")
+
+
+def load_config():
+    path = os.environ.get("QA_SEND_CONFIG") or os.path.expanduser("~/.config/qa-send/config.json")
+    if not os.path.isfile(path):
+        fail(f"not configured, missing {path}")
+    if stat.S_IMODE(os.stat(path).st_mode) & 0o077:
+        fail(f"{path} is readable by other users; run: chmod 600 {path}")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except ValueError:
+        fail(f"{path} is not valid JSON")
+    if not isinstance(cfg, dict):
+        fail(f"{path} must hold a JSON object")
+    hook, headers = cfg.get("url"), cfg.get("headers") or {}
+    if not isinstance(hook, str) or not hook.startswith("https://") or "<" in hook:
+        fail("the config needs an https webhook url (not http, and not the example placeholder)")
+    if not isinstance(headers, dict) or any("<" in str(v) for v in headers.values()):
+        fail("the config headers are missing or still hold the example placeholder")
+    headers = {str(k): str(v) for k, v in headers.items()}
+    for i, (k, v) in enumerate(headers.items(), start=1):   # values are never echoed: they hold the key
+        if not HEADER_NAME.fullmatch(k):
+            fail(f"config header #{i} has an invalid name (letters, digits and - _ . only)")
+        if not HEADER_VALUE.fullmatch(v):
+            fail(f"config header #{i} ({k}) has an invalid value (control or non-latin-1 characters, e.g. a trailing newline)")
+    return hook, headers
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Send one QA job to a hosted QA bot.")
+    ap.add_argument("--url", required=True, help="public or preview URL to test")
+    ap.add_argument("--depth", default="quick", choices=DEPTHS)
+    ap.add_argument("--brief", default="", help="what changed and what to focus on")
+    ap.add_argument("--brief-file", help="read the brief from this file, or '-' for standard input")
+    ap.add_argument("--project")
+    ap.add_argument("--branch")
+    ap.add_argument("--commit")
+    a = ap.parse_args()
+
+    check_target(a.url)
+    brief = a.brief
+    if a.brief_file:
+        if a.brief:
+            fail("give --brief or --brief-file, not both")
+        try:
+            brief = sys.stdin.read() if a.brief_file == "-" else Path(a.brief_file).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as e:
+            fail(f"cannot read the brief file: {e}")
+    brief = brief.strip()
+    if len(brief) > MAX_BRIEF:
+        fail(f"the brief is longer than {MAX_BRIEF} characters")
+    hook, headers = load_config()
+
+    job = {"url": a.url, "depth": a.depth, "brief": brief,
+           "project": a.project, "branch": a.branch, "commit": a.commit}
+    body = json.dumps({k: v for k, v in job.items() if v}).encode()
+    req = urllib.request.Request(hook, data=body, method="POST",
+                                 headers={"Content-Type": "application/json", **headers})
+    try:
+        with urllib.request.build_opener(NoRedirect).open(req, timeout=20) as r:
+            print(f"qa-send: sent ({r.status}). Results will arrive in the QA bot's chat.")
+    except Exception as e:  # report and exit non-zero; never retry automatically
+        fail(f"send failed: {describe_failure(e)}")
+
+
+if __name__ == "__main__":
+    main()

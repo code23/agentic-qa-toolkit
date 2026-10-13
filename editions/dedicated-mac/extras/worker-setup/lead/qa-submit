@@ -1,0 +1,519 @@
+#!/usr/bin/env python3
+"""qa-submit: send one QA brief to a QA worker Mac and collect its evidence.
+
+    qa-submit [options] brief.md      run a brief, collect done/<job-id>/ into --out
+    qa-submit --probe                 run the built-in example.com setup probe
+    qa-submit --check                 config + SSH + worker queue check (submits nothing)
+
+Transport rules: the brief is sent on SSH stdin, never interpolated into a shell command;
+a no-follow owned-directory receiver stages it privately and publishes jobs/<id>.task atomically; only done/<id>/ is
+collected (never "the newest folder"); a wait that passes its deadline means the outcome is
+UNKNOWN (exit 3), never a pass; nothing is ever replayed automatically.
+
+Config (first found): --config PATH, $QA_WORKER_CONFIG, ~/.config/qa-worker/config.json.
+A file may hold the settings at top level or
+under a "worker" key: {"host": "<worker-user>@<worker-host>", "base": "~/qa-worker",
+"effort": "medium", "busyWaitSeconds": 1800, "timeout": 3600}.
+
+Exit codes: 0 result.json written and valid; 1 job finished without a valid result (or the
+probe's checks did not hold); 2 nothing was sent: not configured, transport error, or the
+worker stayed busy ("NOT SUBMITTED"); 3 a sent job passed its deadline: outcome unknown, job id
+printed, nothing cancelled; 4 a sent job finished but its results could not be collected (job
+id and worker path printed; copy them by hand, do not resubmit).
+
+The local brief is deleted once the job is placed in the worker's jobs/ folder (--keep-brief
+opts out for non-sensitive briefs). ACCESS briefs are purged on every terminal outcome,
+including rejection before submission; --keep-brief is forbidden for them.
+
+The worker reports observations only. It never assigns severity or a verdict; you do.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import secrets
+import signal
+import stat
+import shlex
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+VERSION = "1.1.0"
+EXIT_OK, EXIT_NO_RESULT, EXIT_TRANSPORT, EXIT_UNKNOWN, EXIT_NOT_COLLECTED = 0, 1, 2, 3, 4
+LABEL = "local.qa-worker.runner"
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
+JOB_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+HOST_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]*(@[A-Za-z0-9][A-Za-z0-9._-]*)?$")
+BASE_RE = re.compile(r"^(~/|/)[A-Za-z0-9/._-]*$")
+EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
+STATUSES = ("completed", "partial", "blocked")
+
+# Executed remotely with fixed code and non-secret argv; brief bytes arrive on stdin.
+RECEIVE_CODE = r"""
+import os, stat, sys
+base, job, length = sys.argv[1], sys.argv[2], int(sys.argv[3])
+fds = []
+stage = "." + job + ".tmp"
+created = False
+queue = None
+try:
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    root = os.open(base, flags); fds.append(root)
+    for descriptor in (root,):
+        st = os.fstat(descriptor)
+        if st.st_uid != os.getuid() or st.st_mode & 0o022: raise ValueError()
+    queue = os.open("jobs", flags, dir_fd=root); fds.append(queue)
+    done = os.open("done", flags, dir_fd=root); fds.append(done)
+    for descriptor in (queue, done):
+        st = os.fstat(descriptor)
+        if st.st_uid != os.getuid() or st.st_mode & 0o022: raise ValueError()
+    if os.path.basename(job) != job or not job or length > 1048576: raise ValueError()
+    fd = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=queue)
+    created = True
+    with os.fdopen(fd, "wb") as fh:
+        payload = sys.stdin.buffer.read(length + 1)
+        if len(payload) != length: raise ValueError()
+        fh.write(payload)
+        fh.flush()
+        os.fsync(fh.fileno())
+    # Recheck pathname identity after delivery; opened descriptors cannot be
+    # redirected by replacing jobs with a symlink during the transfer.
+    current = os.stat(base, follow_symlinks=False)
+    opened = os.fstat(root)
+    if (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino): raise ValueError()
+    current = os.stat("jobs", dir_fd=root, follow_symlinks=False)
+    opened = os.fstat(queue)
+    if (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino): raise ValueError()
+    os.link(stage, job + ".task", src_dir_fd=queue, dst_dir_fd=queue, follow_symlinks=False)
+    print("queued", flush=True)
+except Exception:
+    print("receiver rejected input", file=sys.stderr)
+    sys.exit(2)
+finally:
+    if created:
+        try: os.unlink(stage, dir_fd=queue)
+        except FileNotFoundError: pass
+    for descriptor in reversed(fds): os.close(descriptor)
+"""
+
+RESULT_CONTRACT = """
+## Result file (required)
+
+When you finish, write `result.json` in the current working directory, exactly this shape:
+{"status": "completed" | "partial" | "blocked",
+ "observations": [{"check": "<what the brief asked you to check>",
+                   "observed": "<what you saw, factually>",
+                   "as_expected": true | false | null,
+                   "evidence": ["<screenshot file name>"]}],
+ "blockers": ["<exact non-secret reason a check could not run>"],
+ "evidence": ["<every screenshot file name saved in the current directory>"]}
+Report observations only: do not assign severity, priority or an overall pass/fail verdict.
+Use "blocked" when no check could run, "partial" when only some ran.
+Save every screenshot in the current directory. Never write passwords, tokens or other
+credentials into any file.
+"""
+
+# Keep identical to worker/probe-brief.md (a test enforces this).
+PROBE_BRIEF = """# QA worker brief: setup probe
+
+Transport and Computer Use check for a QA worker Mac. Not a product QA job.
+
+- URL: https://example.com (public page, no sign-in)
+- Browser: the worker's default browser, brought to the front before any screenshot.
+- Check 1: open the URL; record the main heading text (expected: "Example Domain");
+  save one screenshot of the browser window named `example-home.png`.
+- Check 2: record whether the page shows a "Learn more" or "More information..." link
+  (expected: yes). Do not follow it.
+- Permitted actions: view only. Do not sign in, submit anything or open other sites.
+"""
+
+
+def err(msg: str) -> None:
+    print(f"qa-submit: {msg}", file=sys.stderr, flush=True)
+
+
+def config_candidates(explicit: str | None) -> list[Path]:
+    out: list[Path] = []
+    if explicit:
+        return [Path(explicit).expanduser()]
+    if os.environ.get("QA_WORKER_CONFIG"):
+        out.append(Path(os.environ["QA_WORKER_CONFIG"]).expanduser())
+    out.append(Path.home() / ".config/qa-worker/config.json")
+    return out
+
+
+def load_config(explicit: str | None) -> tuple[dict | None, str]:
+    for path in config_candidates(explicit):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and isinstance(data.get("worker"), dict):
+            data = data["worker"]
+        if isinstance(data, dict) and data.get("host") and data.get("base"):
+            return data, str(path)
+    return None, ""
+
+
+class Remote:
+    def __init__(self, host: str) -> None:
+        self.host = host
+
+    def run(self, command: str, timeout: int = 60) -> subprocess.CompletedProcess:
+        return subprocess.run(["ssh", *SSH_OPTS, self.host, command],
+                              capture_output=True, text=True, timeout=timeout)
+
+    def receive(self, command: str, payload: str, timeout: int) -> subprocess.CompletedProcess:
+        return subprocess.run(["ssh", *SSH_OPTS, self.host, command], input=payload,
+                              capture_output=True, text=True, timeout=timeout)
+
+    def scp(self, args: list[str], timeout: int, pass_fds: tuple[int, ...] = ()) -> subprocess.CompletedProcess:
+        return subprocess.run(["scp", "-q", *SSH_OPTS, *args], capture_output=True, text=True,
+                              timeout=timeout, pass_fds=pass_fds)
+
+
+def resolve_base(remote: Remote, base: str) -> str:
+    base = base.rstrip("/")
+    if base == "~" or base.startswith("~/"):
+        r = remote.run('printf %s "$HOME"')
+        if r.returncode != 0 or not r.stdout.startswith("/"):
+            raise RuntimeError(f"could not resolve ~ on the worker: {r.stderr.strip()[-200:]}")
+        base = r.stdout.strip() + base[1:]
+    return base
+
+
+def busy(remote: Remote, base: str) -> bool:
+    """A queued job, or a live `codex exec` working in this queue's done folder, means busy.
+
+    Folder markers alone are not trusted: an abandoned job folder without .done must not
+    block forever.
+    """
+    q = shlex.quote
+    probe = (f"ls {q(base)}/jobs/*.task 2>/dev/null | head -1; "
+             f"pgrep -f -- {q('[e]xec .*-C ' + re.escape(base) + '/(done/|tmp/active-)')} >/dev/null && echo running")
+    r = remote.run(probe)
+    if r.returncode not in (0, 1):
+        raise RuntimeError(f"busy probe failed: {r.stderr.strip()[-200:]}")
+    return bool(r.stdout.strip())
+
+
+def _str_list(v: object) -> bool:
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+def validate_result(data: object) -> bool:
+    """The result contract: every field present and typed; observations are non-empty objects.
+
+    "completed" and "partial" need at least one observation; "blocked" may have none but must
+    say why in blockers.
+    """
+    if not isinstance(data, dict) or data.get("status") not in STATUSES:
+        return False
+    obs, blockers, evidence = data.get("observations"), data.get("blockers"), data.get("evidence")
+    if not isinstance(obs, list) or not _str_list(blockers) or not _str_list(evidence):
+        return False
+    for o in obs:
+        if not isinstance(o, dict) or not o:
+            return False
+        if not isinstance(o.get("check"), str) or not isinstance(o.get("observed"), str):
+            return False
+        if "as_expected" not in o or o["as_expected"] not in (True, False, None) \
+                or not isinstance(o["as_expected"], (bool, type(None))):
+            return False
+        if not _str_list(o.get("evidence")):
+            return False
+    if data["status"] in ("completed", "partial") and not obs:
+        return False
+    if data["status"] == "blocked" and not obs and not blockers:
+        return False
+    return True
+
+
+def probe_holds(data: dict, folder: Path) -> list[str]:
+    problems = []
+    if data.get("status") != "completed":
+        problems.append(f"status is {data.get('status')!r}, not 'completed'")
+    shot = folder / "example-home.png"
+    if not shot.is_file() or shot.stat().st_size == 0:
+        problems.append("example-home.png missing or empty")
+    obs = data.get("observations", [])
+    if len(obs) < 2 or not all(o.get("as_expected") is True for o in obs):
+        problems.append("not every probe observation is as_expected: true")
+    return problems
+
+
+def cmd_check(remote: Remote, base: str) -> int:
+    q = shlex.quote
+    r = remote.run(f"test -d {q(base)}/jobs && test -d {q(base)}/done && echo queue-ok; "
+                   f"launchctl print gui/$(id -u)/{LABEL} >/dev/null 2>&1 && echo agent-ok; "
+                   f"test -f {q(base)}/logs/gui-selfcheck.json && echo selfcheck-ok; true")
+    if r.returncode != 0:
+        err(f"ssh failed: {r.stderr.strip()[-300:]}")
+        return EXIT_TRANSPORT
+    out = r.stdout.split()
+    ok = True
+    for key, label in (("queue-ok", "queue folders"), ("agent-ok", f"LaunchAgent {LABEL}"),
+                       ("selfcheck-ok", "GUI self-check file")):
+        state = "ok" if key in out else "MISSING"
+        ok = ok and key in out
+        print(f"{label}: {state}")
+    if not ok:
+        err("worker is reachable but not fully set up: run worker/install.sh on it")
+        return EXIT_TRANSPORT
+    print("worker reachable and set up (run --probe for the real end-to-end check)")
+    return EXIT_OK
+
+
+def _main(argv: list[str] | None, cleanup: dict) -> int:
+    ap = argparse.ArgumentParser(prog="qa-submit", description=__doc__.split("\n\n")[0])
+    ap.add_argument("brief", nargs="?", help="brief file (markdown)")
+    ap.add_argument("--probe", action="store_true", help="run the built-in setup probe")
+    ap.add_argument("--check", action="store_true", help="check config, SSH and the worker queue")
+    ap.add_argument("--config", help="config file")
+    ap.add_argument("--out", help="folder that receives <job-id>/ (default: <brief folder>/qa-worker-results)")
+    ap.add_argument("--effort", choices=EFFORTS)
+    ap.add_argument("--timeout", type=float, help="seconds until the outcome is declared unknown")
+    ap.add_argument("--job-prefix", default="qa-worker", help="job id prefix (default qa-worker)")
+    ap.add_argument("--keep-brief", action="store_true",
+                    help="keep a non-sensitive brief; forbidden when ACCESS is declared")
+    ap.add_argument("--delete-brief", action="store_true", help=argparse.SUPPRESS)  # legacy no-op: deleting is the default
+    ap.add_argument("--version", action="version", version=f"qa-submit {VERSION}")
+    args = ap.parse_args(argv)
+
+    if bool(args.brief) + args.probe + args.check != 1:
+        ap.print_usage(sys.stderr)
+        err("give exactly one of: a brief file, --probe, --check")
+        return EXIT_TRANSPORT
+
+    # Inspect only the named brief. ACCESS declarations are sensitive even if invalid.
+    prepared_path, prepared_text = None, None
+    if args.brief:
+        prepared_path = Path(args.brief).expanduser().absolute()
+        try:
+            st = prepared_path.lstat()
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_nlink != 1:
+                err("brief must be an owned regular file with one link")
+                return EXIT_TRANSPORT
+            fd = os.open(prepared_path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(fd, "rb") as fh:
+                opened = os.fstat(fh.fileno())
+                if (opened.st_dev, opened.st_ino) != (st.st_dev, st.st_ino):
+                    return EXIT_TRANSPORT
+                raw = fh.read()
+            declared = any(line.startswith(b"ACCESS=") for line in raw.splitlines())
+            cleanup.update(path=prepared_path, identity=(st.st_dev, st.st_ino), sensitive=declared)
+            if declared:
+                # Consume sensitive input before any config/transport wait or crash.
+                current = prepared_path.lstat()
+                if (current.st_dev, current.st_ino) != cleanup["identity"]:
+                    raise OSError("brief replaced")
+                prepared_path.unlink()
+            prepared_text = raw.decode("utf-8")
+            if declared and args.keep_brief:
+                err("--keep-brief is forbidden for ACCESS briefs")
+                return EXIT_TRANSPORT
+            if declared:
+                validate_access(prepared_text)
+        except (OSError, UnicodeDecodeError, ValueError):
+            err("cannot read brief or invalid ACCESS declaration")
+            return EXIT_TRANSPORT
+
+    cfg, cfg_path = load_config(args.config)
+    if not cfg:
+        err("not configured: no config with host and base (run lead/setup-lead.sh)")
+        return EXIT_TRANSPORT
+    host, base = str(cfg["host"]), str(cfg["base"])
+    if not HOST_RE.match(host) or not BASE_RE.match(base):
+        err(f"invalid host or base in {cfg_path}")
+        return EXIT_TRANSPORT
+    effort = args.effort or str(cfg.get("effort") or "medium")
+    if effort not in EFFORTS:
+        err(f"invalid effort {effort!r} in {cfg_path}")
+        return EXIT_TRANSPORT
+    poll = float(os.environ.get("QA_WORKER_SUBMIT_POLL") or 20)
+    busy_poll = float(os.environ.get("QA_WORKER_SUBMIT_BUSY_POLL") or 30)
+    timeout = args.timeout or float(cfg.get("timeout") or 3600)
+    deadline = time.time() + timeout
+    busy_until = time.time() + float(cfg.get("busyWaitSeconds") or 1800)
+    prefix = args.job_prefix if JOB_RE.match(args.job_prefix or "") else "qa-worker"
+
+    remote = Remote(host)
+    try:
+        base = resolve_base(remote, base)
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
+        err(str(e))
+        return EXIT_TRANSPORT
+
+    if args.check:
+        try:
+            return cmd_check(remote, base)
+        except subprocess.TimeoutExpired:
+            err("ssh timed out")
+            return EXIT_TRANSPORT
+
+    if args.probe:
+        brief_text = PROBE_BRIEF
+        brief_path = None
+        state = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state")
+        out_root = Path(args.out).expanduser() if args.out else state / "qa-worker/probes"
+    else:
+        brief_path, brief_text = prepared_path, prepared_text
+        out_root = Path(args.out).expanduser() if args.out else brief_path.parent / "qa-worker-results"
+
+    state = {"submitted": False}
+    try:
+        return run(remote, base, brief_text, effort, prefix, out_root, deadline, busy_until,
+                   poll, busy_poll, probe=args.probe, state=state)
+    finally:
+        # Delete only once the job was really placed in jobs/ (the atomic rename succeeded),
+        # whatever the exit code. The outer cleanup also purges ACCESS briefs before sending.
+        if not args.keep_brief and state["submitted"] and brief_path is not None:
+            try:
+                st = brief_path.lstat()
+                if (st.st_dev, st.st_ino) == cleanup.get("identity"):
+                    brief_path.unlink()
+                    print("qa-submit: deleted brief")
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                err("could not delete brief")
+
+
+def run(remote: Remote, base: str, brief_text: str, effort: str, prefix: str, out_root: Path,
+        deadline: float, busy_until: float, poll: float, busy_poll: float, probe: bool,
+        state: dict) -> int:
+    q = shlex.quote
+    try:
+        while busy(remote, base):
+            if time.time() > min(busy_until, deadline):
+                err("NOT SUBMITTED: the worker stayed busy (a queued or running job); nothing was "
+                    "sent. Sensitive briefs are purged; recreate one before retrying.")
+                return EXIT_TRANSPORT
+            time.sleep(max(0.0, min(busy_poll, min(busy_until, deadline) - time.time())) or 0.01)
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
+        err(str(e))
+        return EXIT_TRANSPORT
+
+    job = f"{prefix}-{time.strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(3)}"
+    if not JOB_RE.match(job):
+        err("generated job id is invalid")
+        return EXIT_TRANSPORT
+    payload = f"EFFORT={effort}\n" + brief_text.rstrip() + "\n" + RESULT_CONTRACT
+    command = "python3 -c " + q(RECEIVE_CODE) + " " + q(base) + " " + q(job) + " " + str(len(payload.encode("utf-8")))
+    try:
+        received = remote.receive(command, payload, timeout=120)
+        if received.returncode != 0 or received.stdout.strip() != "queued":
+            err("receiver rejected transfer; nothing was confirmed queued")
+            return EXIT_TRANSPORT
+        state["submitted"] = True
+    except subprocess.TimeoutExpired:
+        err("transfer timed out; the job may or may not be queued (job id " + job + ")")
+        return EXIT_UNKNOWN
+    print(f"qa-submit: submitted {job}", flush=True)
+
+    done = f"{base}/done/{job}"
+    expired = f"deadline passed; job {job} outcome unknown (not cancelled, not replayed)"
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            err(expired)
+            return EXIT_UNKNOWN
+        try:
+            # Each SSH wait is bounded by the time left (at least 1 s so a check can complete).
+            r = remote.run(f"test -f {q(done + '/.done')} && echo done", timeout=max(1, int(min(60, remaining)) + 1))
+            seen = r.stdout.strip() == "done"
+        except subprocess.TimeoutExpired:
+            seen = False  # transient; the deadline still applies
+        # A marker observed only after the deadline does not count: the outcome stays unknown.
+        if time.time() > deadline:
+            err(expired)
+            return EXIT_UNKNOWN
+        if seen:
+            break
+        time.sleep(max(0.0, min(poll, deadline - time.time())))
+
+    out_root.mkdir(parents=True, exist_ok=True)
+    try:
+        cp = remote.scp(["-r", f"{remote.host}:{done}", str(out_root)], timeout=600)
+    except subprocess.TimeoutExpired:
+        cp = None
+    if cp is None or cp.returncode != 0:
+        err(f"job {job} finished on the worker but its results were not collected "
+            f"({(cp.stderr.strip()[-200:] if cp else 'timed out')}). Do not resubmit; copy them by hand: "
+            f"scp -r {q(remote.host + ':' + done)} {q(str(out_root) + '/')}")
+        return EXIT_NOT_COLLECTED
+    folder = out_root / job
+    try:
+        data = json.loads((folder / "result.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = None
+    if not validate_result(data):
+        err(f"job {job} finished without a valid result.json; evidence in {folder}")
+        return EXIT_NO_RESULT
+    if probe:
+        problems = probe_holds(data, folder)
+        if problems:
+            err(f"probe {job} did not hold: {'; '.join(problems)}; evidence in {folder}")
+            return EXIT_NO_RESULT
+        print(f"qa-submit: PROBE OK ({job}). Look at {folder / 'example-home.png'} to confirm it "
+              "shows the browser, not another window.")
+        return EXIT_OK
+    print(f"qa-submit: {job} status {data['status']}; {len(data.get('observations', []))} observation(s); "
+          f"evidence in {folder}. Review the screenshots and judge the result yourself.")
+    return EXIT_OK
+
+
+def validate_access(text: str) -> None:
+    headers = []
+    for line in text.splitlines():
+        if not line.startswith(("ACCESS=", "EFFORT=", "MODEL=")):
+            break
+        if line.startswith("ACCESS="):
+            headers.append(line[7:])
+    if len(headers) != 1:
+        raise ValueError("ACCESS must be one leading header")
+    d = json.loads(headers[0])
+    if not isinstance(d, dict):
+        raise ValueError("invalid ACCESS")
+    if d.get("environment") == "production":
+        if set(d) != {"environment", "secureReference"} or not isinstance(d["secureReference"], str) or not d["secureReference"]:
+            raise ValueError("production requires secureReference")
+    elif d.get("environment") in {"test", "staging", "demo"}:
+        if set(d) != {"environment", "username", "password"} or any(
+                not isinstance(d[k], str) or not d[k] or len(d[k]) > 4096 for k in ("username", "password")):
+            raise ValueError("invalid inline credentials")
+    else:
+        raise ValueError("invalid environment")
+
+
+def main(argv: list[str] | None = None) -> int:
+    cleanup = {}
+    def cancel(_signum, _frame):
+        raise InterruptedError("submission cancelled")
+    previous = {sig: signal.signal(sig, cancel) for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
+    try:
+        return _main(argv, cleanup)
+    except InterruptedError:
+        err("submission interrupted; confirm the job outcome before any retry")
+        return EXIT_UNKNOWN
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        if cleanup.get("sensitive"):
+            try:
+                path = cleanup["path"]
+                st = path.lstat()
+                if (st.st_dev, st.st_ino) == cleanup["identity"]:
+                    path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                err("local sensitive brief cleanup failed; do not archive it")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

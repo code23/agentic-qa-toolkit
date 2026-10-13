@@ -1,0 +1,106 @@
+{
+ "masked_names": [
+  "Brindlemere",
+  "Oakhaven"
+ ],
+ "threshold": 0.9,
+ "min_words": 150,
+ "complete": true,
+ "time_budget": 120,
+ "method": "5-word shingle Jaccard on served <main> text (or <body> minus header/nav/footer/aside); SequenceMatcher ratio for candidate pairs (not run at all when either text exceeds --max-chars: seq_limited)",
+ "pages": [
+  {
+   "url": "http://127.0.0.1:8765/brindlemere.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/brindlemere.html",
+   "redirects": [],
+   "content_type": "text/html",
+   "encoding": "utf-8",
+   "error": null,
+   "root": "main",
+   "words": 203,
+   "rendered_words": null,
+   "csr_hint": false,
+   "coverage": "full"
+  },
+  {
+   "url": "http://127.0.0.1:8765/oakhaven.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/oakhaven.html",
+   "redirects": [],
+   "content_type": "text/html",
+   "encoding": "utf-8",
+   "error": null,
+   "root": "main",
+   "words": 203,
+   "rendered_words": null,
+   "csr_hint": false,
+   "coverage": "full"
+  },
+  {
+   "url": "http://127.0.0.1:8765/mobile-service.html",
+   "status": 200,
+   "final_url": "http://127.0.0.1:8765/mobile-service.html",
+   "redirects": [],
+   "content_type": "text/html",
+   "encoding": "utf-8",
+   "error": null,
+   "root": "main",
+   "words": 171,
+   "rendered_words": 171,
+   "csr_hint": false,
+   "coverage": "full"
+  }
+ ],
+ "pairs": [
+  {
+   "a": "http://127.0.0.1:8765/brindlemere.html",
+   "b": "http://127.0.0.1:8765/oakhaven.html",
+   "words": [
+    203,
+    203
+   ],
+   "roots": [
+    "main",
+    "main"
+   ],
+   "jaccard5": 0.951,
+   "seq_ratio": 0.995,
+   "flag": true,
+   "decided_on": "max(jaccard5, seq_ratio)",
+   "status": "compared"
+  },
+  {
+   "a": "http://127.0.0.1:8765/brindlemere.html",
+   "b": "http://127.0.0.1:8765/mobile-service.html",
+   "words": [
+    203,
+    171
+   ],
+   "roots": [
+    "main",
+    "main"
+   ],
+   "jaccard5": 0.0,
+   "flag": false,
+   "decided_on": "jaccard5",
+   "status": "compared"
+  },
+  {
+   "a": "http://127.0.0.1:8765/oakhaven.html",
+   "b": "http://127.0.0.1:8765/mobile-service.html",
+   "words": [
+    203,
+    171
+   ],
+   "roots": [
+    "main",
+    "main"
+   ],
+   "jaccard5": 0.0,
+   "flag": false,
+   "decided_on": "jaccard5",
+   "status": "compared"
+  }
+ ]
+}

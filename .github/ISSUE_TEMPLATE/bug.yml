@@ -1,0 +1,52 @@
+name: Bug or wrong result
+description: A script crashed, gave a wrong result, or a skill instruction is wrong or contradictory.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Never include credentials, customer data, or the address of a site you do not own.
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Edition
+      options: [Local, Hosted QA bot, Dedicated QA Mac, Not sure]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The contents of the VERSION file.
+    validations:
+      required: true
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: The command, or what you asked your agent to do.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: Output, error text, or the part of the result that is wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Smallest page or file that reproduces it
+      description: Made-up content only.
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Operating system, Python and Node versions, browser version.

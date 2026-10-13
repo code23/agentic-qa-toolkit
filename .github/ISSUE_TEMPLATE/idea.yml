@@ -1,0 +1,22 @@
+name: Idea
+description: A check, edition or document you think is missing.
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation where the toolkit fell short.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+  - type: textarea
+    id: limits
+    attributes:
+      label: Anything it must not do
+      description: For example, a check that must stay read-only.

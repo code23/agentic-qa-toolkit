@@ -1,0 +1,69 @@
+/* Tidewick Bike Works: a fictional demo site. Plain CSS, no external requests. */
+:root {
+  --ink: #1d2a33;
+  --muted: #4c5b66;
+  --bg: #fbfaf7;
+  --card: #ffffff;
+  --accent: #0b6e6e;
+  --accent-ink: #ffffff;
+  --line: #d9dfe3;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+a { color: var(--accent); }
+img, svg { max-width: 100%; }
+
+.site-header { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1.5rem; padding: 0.6rem 1rem; background: var(--card); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: var(--ink); text-decoration: none; }
+.site-header nav { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; }
+.site-header nav a { text-decoration: none; padding: 0.15rem 0; }
+.site-header nav a:hover { text-decoration: underline; }
+
+main { max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem 7rem; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0.5rem 0 1rem; }
+h2 { font-size: 1.3rem; margin: 2rem 0 0.5rem; }
+.lead { font-size: 1.15rem; color: var(--muted); }
+
+.btn { display: inline-block; padding: 0.6rem 1.1rem; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+.btn.secondary { background: transparent; color: var(--accent); }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.1rem; }
+.card h3 { margin-top: 0; }
+
+.hours-strip { display: flex; gap: 1rem; padding: 0.8rem 1rem; background: #e9f3f2; border: 1px solid var(--line); border-radius: 8px; }
+.hours-strip span { flex: 1; }
+
+table.prices { border-collapse: collapse; width: 100%; background: var(--card); }
+table.prices th, table.prices td { border: 1px solid var(--line); padding: 0.5rem 0.7rem; text-align: left; }
+
+.art { overflow: hidden; height: 120px; border-radius: 8px; background: #e9f3f2; margin: 1rem 0; }
+
+form.contact-form { display: grid; gap: 0.8rem; max-width: 30rem; }
+form.contact-form label { display: grid; gap: 0.25rem; font-weight: 600; }
+form.contact-form input, form.contact-form textarea { font: inherit; padding: 0.5rem; border: 1px solid var(--line); border-radius: 6px; }
+
+.site-footer { border-top: 1px solid var(--line); padding: 1.5rem 1rem 7rem; text-align: center; color: var(--muted); font-size: 0.9rem; }
+
+.cookie-banner { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; padding: 0.9rem 1rem; background: #10222b; color: #fff; }
+.cookie-banner[hidden] { display: none; }
+.cookie-banner p { margin: 0; flex: 1 1 18rem; }
+.cookie-banner a { color: #bfe7e3; }
+.cookie-actions { display: flex; gap: 0.6rem; }
+.cookie-banner .btn.secondary { color: #fff; border-color: #fff; }
+
+.price-mobile { display: none; }
+@media (max-width: 600px) {
+  .price-desktop { display: none; }
+  .price-mobile { display: inline; }
+  .desktop-only { display: none; }
+}
+@media (max-width: 480px) {
+  h1 { font-size: 1.6rem; }
+  .hours-strip { flex-direction: column; gap: 0.3rem; }
+}
+
+/* Planted fault: horizontal overflow at one tablet width only (clean at phone and desktop widths). */
+@media (min-width: 700px) and (max-width: 800px) {
+  .hours-strip { min-width: 880px; }
+}

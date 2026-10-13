@@ -1,0 +1,1 @@
+{"url": "https://<your-webhook-host>/<path>", "headers": {"Authorization": "Bearer <your key>"}}

@@ -1,0 +1,14 @@
+{
+  "name": "qa-toolkit-node-tests",
+  "private": true,
+  "description": "Offline tests for the qa-site-audit headless-browser scripts, run against the fictional demo site.",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "test": "node run-tests.js"
+  },
+  "devDependencies": {
+    "puppeteer-core": "23.11.1"
+  }
+}

@@ -1,0 +1,4 @@
+{"findings": [
+  {"id": "QA-01", "title": "Booking button hidden", "evidence": ["screenshots/home.png"]},
+  {"id": "QA-02", "title": "No form error", "evidence": ["screenshots/contact.png"]}
+]}

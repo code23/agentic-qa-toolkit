@@ -1,0 +1,175 @@
+{
+ "generated": "2026-10-13T17:04:21.876Z",
+ "pattern": "\\b(debug|lorem ipsum|todo|fixme|xxx+|test(ing)? (label|copy|content|page)|placeholder text|dummy|staging|localhost|console\\.log|asdf)\\b",
+ "note": "inServedHtml is a heuristic (text or attribute found in the served HTML). Hidden hits are hygiene items, not broken UI. ownFetchErrors lists the script's own GETs that failed, were truncated or were skipped; such a page counts as a partial failure.",
+ "results": [
+  {
+   "url": "http://127.0.0.1:8765/index.html",
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/index.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "blockedNavigations": [],
+   "domHits": [],
+   "testIdAttrs": 0,
+   "consoleMsgs": [],
+   "pageErrors": [],
+   "failedRequests": [],
+   "mixedContent": [],
+   "nonGetRequests": {},
+   "sourceMaps": [],
+   "servedHtmlError": null,
+   "ownFetchErrors": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/mobile-service.html",
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/mobile-service.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "blockedNavigations": [],
+   "domHits": [],
+   "testIdAttrs": 0,
+   "consoleMsgs": [],
+   "pageErrors": [
+    "ReferenceError: bookingWidget is not defined"
+   ],
+   "failedRequests": [],
+   "mixedContent": [],
+   "nonGetRequests": {},
+   "sourceMaps": [],
+   "servedHtmlError": null,
+   "ownFetchErrors": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/pricing.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "blockedNavigations": [],
+   "domHits": [
+    {
+     "tag": "DIV",
+     "match": "debug",
+     "where": "id/class",
+     "text": "",
+     "id": "",
+     "cls": "debug-grid",
+     "visible": false,
+     "inServedHtml": true
+    },
+    {
+     "tag": "DIV",
+     "match": "TODO",
+     "where": "text",
+     "text": "TODO: remove the old price list. Owner <email>, token QX7R…<redacted>",
+     "id": "price-notes",
+     "cls": "",
+     "visible": false,
+     "inServedHtml": true
+    },
+    {
+     "tag": "P",
+     "match": "TEST LABEL",
+     "where": "text",
+     "text": "TEST LABEL do not publish",
+     "id": "",
+     "cls": "",
+     "visible": false,
+     "inServedHtml": true
+    }
+   ],
+   "testIdAttrs": 0,
+   "consoleMsgs": [],
+   "pageErrors": [],
+   "failedRequests": [],
+   "mixedContent": [],
+   "nonGetRequests": {},
+   "sourceMaps": [
+    {
+     "asset": "http://127.0.0.1:8765/assets/pricing-widget.js",
+     "map": "http://127.0.0.1:8765/assets/pricing-widget.js.map",
+     "via": "comment",
+     "status": 200,
+     "probe": "status only"
+    }
+   ],
+   "servedHtmlError": null,
+   "ownFetchErrors": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/contact.html",
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/contact.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "blockedNavigations": [],
+   "domHits": [
+    {
+     "tag": "P",
+     "match": "Lorem ipsum",
+     "where": "text",
+     "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Directions and a map wi",
+     "id": "",
+     "cls": "",
+     "visible": true,
+     "inServedHtml": true
+    },
+    {
+     "tag": "DIV",
+     "match": "debug",
+     "where": "id/class",
+     "text": "",
+     "id": "",
+     "cls": "debug-overlay",
+     "visible": false,
+     "inServedHtml": false
+    }
+   ],
+   "testIdAttrs": 0,
+   "consoleMsgs": [
+    "error: Map widget failed to initialise for <email>",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)"
+   ],
+   "pageErrors": [],
+   "failedRequests": [
+    "404 http://127.0.0.1:8765/api/availability.json"
+   ],
+   "mixedContent": [],
+   "nonGetRequests": {},
+   "sourceMaps": [],
+   "servedHtmlError": null,
+   "ownFetchErrors": []
+  },
+  {
+   "url": "http://127.0.0.1:8765/chain-care-guide.html",
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/chain-care-guide.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "blockedNavigations": [],
+   "domHits": [],
+   "testIdAttrs": 0,
+   "consoleMsgs": [],
+   "pageErrors": [],
+   "failedRequests": [],
+   "mixedContent": [],
+   "nonGetRequests": {},
+   "sourceMaps": [],
+   "servedHtmlError": null,
+   "ownFetchErrors": []
+  }
+ ],
+ "failures": []
+}

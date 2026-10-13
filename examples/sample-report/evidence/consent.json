@@ -1,0 +1,958 @@
+{
+ "generated": "2026-10-13T16:59:17.988Z",
+ "egressCountry": "GB",
+ "note": "At most one click per phase (Accept, then Reject in a separate fresh profile). The consent platform may log each choice server-side; note that in the run log. Policy keyword match is a heuristic; the lead reads the policy before rating. reject.rejectHonoured covers only what the Reject choice let through; trackers present before any click (preConsentTracking, reject.trackersBeforeClick) are a separate pre-consent finding. Severity mapping: references/consent-and-privacy.md.",
+ "labels": {
+  "accept": "^(accept|accept all|accept all cookies|accept cookies|allow all|allow all cookies|allow cookies|i accept|got it|ok|ok, got it|agree and close)$",
+  "agreeInNamedContainerOnly": "^(agree|i agree)$",
+  "reject": "^(reject|reject all|reject all cookies|reject cookies|decline|decline all|necessary only|only necessary|only necessary cookies|essential only|deny|deny all)$"
+ },
+ "policyError": null,
+ "results": [
+  {
+   "url": "http://127.0.0.1:8765/index.html",
+   "width": 375,
+   "emulation": {
+    "width": 375,
+    "height": 844,
+    "mobile": true,
+    "touch": true,
+    "ua": "mobile (Android Chrome)",
+    "reducedMotion": false
+   },
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/index.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "preConsent": {
+    "cookies": [
+     {
+      "name": "tw_v…<redacted>",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     },
+     {
+      "name": "_ga",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 3,
+    "consentModeSignals": []
+   },
+   "preConsentTracking": [
+    "google analytics"
+   ],
+   "acceptClicked": "Accept all",
+   "acceptContainer": "named",
+   "navigationAfterAccept": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/index.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "postConsent": {
+    "cookies": [
+     {
+      "name": "tw_v…<redacted>",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     },
+     {
+      "name": "_ga",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     },
+     {
+      "name": "_hjid",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [
+      "tidewick-consent"
+     ],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 3,
+    "consentModeSignals": []
+   },
+   "postConsentBlocked": null,
+   "acceptError": null,
+   "newHostsAfterConsent": [],
+   "newCookiesAfterConsent": [
+    {
+     "name": "_hjid",
+     "domain": "127.0.0.1",
+     "expires": "2027-10-13"
+    }
+   ],
+   "nonGetRequests": {},
+   "mixedContent": [],
+   "blockedNavigations": [],
+   "reject": {
+    "clicked": "Reject all",
+    "container": "named",
+    "blocked": null,
+    "error": null,
+    "navigation": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/index.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "navigationAfterClick": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/index.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "preReject": {
+     "cookies": [
+      {
+       "name": "tw_v…<redacted>",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      },
+      {
+       "name": "_ga",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      }
+     ],
+     "storage": {
+      "local": [],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 3,
+     "consentModeSignals": []
+    },
+    "postReject": {
+     "cookies": [
+      {
+       "name": "tw_v…<redacted>",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      },
+      {
+       "name": "_ga",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      }
+     ],
+     "storage": {
+      "local": [
+       "tidewick-consent"
+      ],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 3,
+     "consentModeSignals": []
+    },
+    "nonGetRequests": {},
+    "mixedContent": [],
+    "blockedNavigations": [],
+    "trackersBeforeClick": [
+     "google analytics"
+    ],
+    "trackersAfterReject": [
+     "google analytics"
+    ],
+    "newTrackersAfterReject": [],
+    "trackerCookiesAfterReject": [],
+    "rejectHonoured": true
+   },
+   "policyCheck": [
+    {
+     "kind": "cookie",
+     "id": "_ga@127.0.0.1",
+     "vendor": "google analytics",
+     "category": "analytics",
+     "mentionedInPolicy": true
+    },
+    {
+     "kind": "cookie",
+     "id": "_hjid@127.0.0.1",
+     "vendor": "hotjar",
+     "category": "analytics",
+     "mentionedInPolicy": false
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/index.html",
+   "width": 1366,
+   "emulation": {
+    "width": 1366,
+    "height": 900,
+    "mobile": false,
+    "touch": false,
+    "ua": "desktop Chrome",
+    "reducedMotion": false
+   },
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/index.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "preConsent": {
+    "cookies": [
+     {
+      "name": "tw_v…<redacted>",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     },
+     {
+      "name": "_ga",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 3,
+    "consentModeSignals": []
+   },
+   "preConsentTracking": [
+    "google analytics"
+   ],
+   "acceptClicked": "Accept all",
+   "acceptContainer": "named",
+   "navigationAfterAccept": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/index.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "postConsent": {
+    "cookies": [
+     {
+      "name": "tw_v…<redacted>",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     },
+     {
+      "name": "_ga",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     },
+     {
+      "name": "_hjid",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [
+      "tidewick-consent"
+     ],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 3,
+    "consentModeSignals": []
+   },
+   "postConsentBlocked": null,
+   "acceptError": null,
+   "newHostsAfterConsent": [],
+   "newCookiesAfterConsent": [
+    {
+     "name": "_hjid",
+     "domain": "127.0.0.1",
+     "expires": "2027-10-13"
+    }
+   ],
+   "nonGetRequests": {},
+   "mixedContent": [],
+   "blockedNavigations": [],
+   "reject": {
+    "clicked": "Reject all",
+    "container": "named",
+    "blocked": null,
+    "error": null,
+    "navigation": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/index.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "navigationAfterClick": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/index.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "preReject": {
+     "cookies": [
+      {
+       "name": "tw_v…<redacted>",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      },
+      {
+       "name": "_ga",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      }
+     ],
+     "storage": {
+      "local": [],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 3,
+     "consentModeSignals": []
+    },
+    "postReject": {
+     "cookies": [
+      {
+       "name": "tw_v…<redacted>",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      },
+      {
+       "name": "_ga",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      }
+     ],
+     "storage": {
+      "local": [
+       "tidewick-consent"
+      ],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 3,
+     "consentModeSignals": []
+    },
+    "nonGetRequests": {},
+    "mixedContent": [],
+    "blockedNavigations": [],
+    "trackersBeforeClick": [
+     "google analytics"
+    ],
+    "trackersAfterReject": [
+     "google analytics"
+    ],
+    "newTrackersAfterReject": [],
+    "trackerCookiesAfterReject": [],
+    "rejectHonoured": true
+   },
+   "policyCheck": [
+    {
+     "kind": "cookie",
+     "id": "_ga@127.0.0.1",
+     "vendor": "google analytics",
+     "category": "analytics",
+     "mentionedInPolicy": true
+    },
+    {
+     "kind": "cookie",
+     "id": "_hjid@127.0.0.1",
+     "vendor": "hotjar",
+     "category": "analytics",
+     "mentionedInPolicy": false
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "width": 375,
+   "emulation": {
+    "width": 375,
+    "height": 844,
+    "mobile": true,
+    "touch": true,
+    "ua": "mobile (Android Chrome)",
+    "reducedMotion": false
+   },
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/pricing.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "preConsent": {
+    "cookies": [],
+    "storage": {
+     "local": [],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "preConsentTracking": [],
+   "acceptClicked": "Accept all",
+   "acceptContainer": "named",
+   "navigationAfterAccept": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/pricing.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "postConsent": {
+    "cookies": [
+     {
+      "name": "_hjid",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [
+      "tidewick-consent"
+     ],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "postConsentBlocked": null,
+   "acceptError": null,
+   "newHostsAfterConsent": [],
+   "newCookiesAfterConsent": [
+    {
+     "name": "_hjid",
+     "domain": "127.0.0.1",
+     "expires": "2027-10-13"
+    }
+   ],
+   "nonGetRequests": {},
+   "mixedContent": [],
+   "blockedNavigations": [],
+   "reject": {
+    "clicked": "Reject all",
+    "container": "named",
+    "blocked": null,
+    "error": null,
+    "navigation": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/pricing.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "navigationAfterClick": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/pricing.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "preReject": {
+     "cookies": [],
+     "storage": {
+      "local": [],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "postReject": {
+     "cookies": [
+      {
+       "name": "_hjid",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      }
+     ],
+     "storage": {
+      "local": [
+       "tidewick-consent"
+      ],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "nonGetRequests": {},
+    "mixedContent": [],
+    "blockedNavigations": [],
+    "trackersBeforeClick": [],
+    "trackersAfterReject": [
+     "hotjar"
+    ],
+    "newTrackersAfterReject": [
+     "hotjar"
+    ],
+    "trackerCookiesAfterReject": [
+     {
+      "name": "_hjid",
+      "domain": "127.0.0.1",
+      "vendor": "hotjar",
+      "alreadySetBeforeClick": false
+     }
+    ],
+    "rejectHonoured": false
+   },
+   "policyCheck": [
+    {
+     "kind": "cookie",
+     "id": "_hjid@127.0.0.1",
+     "vendor": "hotjar",
+     "category": "analytics",
+     "mentionedInPolicy": false
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "width": 1366,
+   "emulation": {
+    "width": 1366,
+    "height": 900,
+    "mobile": false,
+    "touch": false,
+    "ua": "desktop Chrome",
+    "reducedMotion": false
+   },
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/pricing.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "preConsent": {
+    "cookies": [],
+    "storage": {
+     "local": [],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "preConsentTracking": [],
+   "acceptClicked": "Accept all",
+   "acceptContainer": "named",
+   "navigationAfterAccept": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/pricing.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "postConsent": {
+    "cookies": [
+     {
+      "name": "_hjid",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [
+      "tidewick-consent"
+     ],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "postConsentBlocked": null,
+   "acceptError": null,
+   "newHostsAfterConsent": [],
+   "newCookiesAfterConsent": [
+    {
+     "name": "_hjid",
+     "domain": "127.0.0.1",
+     "expires": "2027-10-13"
+    }
+   ],
+   "nonGetRequests": {},
+   "mixedContent": [],
+   "blockedNavigations": [],
+   "reject": {
+    "clicked": "Reject all",
+    "container": "named",
+    "blocked": null,
+    "error": null,
+    "navigation": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/pricing.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "navigationAfterClick": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/pricing.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "preReject": {
+     "cookies": [],
+     "storage": {
+      "local": [],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "postReject": {
+     "cookies": [
+      {
+       "name": "_hjid",
+       "domain": "127.0.0.1",
+       "expires": "2027-10-13"
+      }
+     ],
+     "storage": {
+      "local": [
+       "tidewick-consent"
+      ],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "nonGetRequests": {},
+    "mixedContent": [],
+    "blockedNavigations": [],
+    "trackersBeforeClick": [],
+    "trackersAfterReject": [
+     "hotjar"
+    ],
+    "newTrackersAfterReject": [
+     "hotjar"
+    ],
+    "trackerCookiesAfterReject": [
+     {
+      "name": "_hjid",
+      "domain": "127.0.0.1",
+      "vendor": "hotjar",
+      "alreadySetBeforeClick": false
+     }
+    ],
+    "rejectHonoured": false
+   },
+   "policyCheck": [
+    {
+     "kind": "cookie",
+     "id": "_hjid@127.0.0.1",
+     "vendor": "hotjar",
+     "category": "analytics",
+     "mentionedInPolicy": false
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/contact.html",
+   "width": 375,
+   "emulation": {
+    "width": 375,
+    "height": 844,
+    "mobile": true,
+    "touch": true,
+    "ua": "mobile (Android Chrome)",
+    "reducedMotion": false
+   },
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/contact.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "preConsent": {
+    "cookies": [],
+    "storage": {
+     "local": [],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "preConsentTracking": [],
+   "acceptClicked": "I agree",
+   "acceptContainer": "named",
+   "navigationAfterAccept": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/contact.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "postConsent": {
+    "cookies": [
+     {
+      "name": "_ga",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [
+      "tidewick-consent"
+     ],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "postConsentBlocked": null,
+   "acceptError": null,
+   "newHostsAfterConsent": [],
+   "newCookiesAfterConsent": [
+    {
+     "name": "_ga",
+     "domain": "127.0.0.1",
+     "expires": "2027-10-13"
+    }
+   ],
+   "nonGetRequests": {},
+   "mixedContent": [],
+   "blockedNavigations": [],
+   "reject": {
+    "clicked": "Decline",
+    "container": "named",
+    "blocked": null,
+    "error": null,
+    "navigation": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/contact.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "navigationAfterClick": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/contact.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "preReject": {
+     "cookies": [],
+     "storage": {
+      "local": [],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "postReject": {
+     "cookies": [],
+     "storage": {
+      "local": [
+       "tidewick-consent"
+      ],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "nonGetRequests": {},
+    "mixedContent": [],
+    "blockedNavigations": [],
+    "trackersBeforeClick": [],
+    "trackersAfterReject": [],
+    "newTrackersAfterReject": [],
+    "trackerCookiesAfterReject": [],
+    "rejectHonoured": true
+   },
+   "policyCheck": [
+    {
+     "kind": "cookie",
+     "id": "_ga@127.0.0.1",
+     "vendor": "google analytics",
+     "category": "analytics",
+     "mentionedInPolicy": true
+    }
+   ]
+  },
+  {
+   "url": "http://127.0.0.1:8765/contact.html",
+   "width": 1366,
+   "emulation": {
+    "width": 1366,
+    "height": 900,
+    "mobile": false,
+    "touch": false,
+    "ua": "desktop Chrome",
+    "reducedMotion": false
+   },
+   "navigation": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/contact.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "preConsent": {
+    "cookies": [],
+    "storage": {
+     "local": [],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "preConsentTracking": [],
+   "acceptClicked": "I agree",
+   "acceptContainer": "named",
+   "navigationAfterAccept": {
+    "status": 200,
+    "finalUrl": "http://127.0.0.1:8765/contact.html",
+    "contentType": "text/html",
+    "redirects": 0
+   },
+   "postConsent": {
+    "cookies": [
+     {
+      "name": "_ga",
+      "domain": "127.0.0.1",
+      "expires": "2027-10-13"
+     }
+    ],
+    "storage": {
+     "local": [
+      "tidewick-consent"
+     ],
+     "session": []
+    },
+    "hosts": [
+     "127.0.0.1:8765"
+    ],
+    "requestCount": 4,
+    "consentModeSignals": []
+   },
+   "postConsentBlocked": null,
+   "acceptError": null,
+   "newHostsAfterConsent": [],
+   "newCookiesAfterConsent": [
+    {
+     "name": "_ga",
+     "domain": "127.0.0.1",
+     "expires": "2027-10-13"
+    }
+   ],
+   "nonGetRequests": {},
+   "mixedContent": [],
+   "blockedNavigations": [],
+   "reject": {
+    "clicked": "Decline",
+    "container": "named",
+    "blocked": null,
+    "error": null,
+    "navigation": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/contact.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "navigationAfterClick": {
+     "status": 200,
+     "finalUrl": "http://127.0.0.1:8765/contact.html",
+     "contentType": "text/html",
+     "redirects": 0
+    },
+    "preReject": {
+     "cookies": [],
+     "storage": {
+      "local": [],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "postReject": {
+     "cookies": [],
+     "storage": {
+      "local": [
+       "tidewick-consent"
+      ],
+      "session": []
+     },
+     "hosts": [
+      "127.0.0.1:8765"
+     ],
+     "requestCount": 4,
+     "consentModeSignals": []
+    },
+    "nonGetRequests": {},
+    "mixedContent": [],
+    "blockedNavigations": [],
+    "trackersBeforeClick": [],
+    "trackersAfterReject": [],
+    "newTrackersAfterReject": [],
+    "trackerCookiesAfterReject": [],
+    "rejectHonoured": true
+   },
+   "policyCheck": [
+    {
+     "kind": "cookie",
+     "id": "_ga@127.0.0.1",
+     "vendor": "google analytics",
+     "category": "analytics",
+     "mentionedInPolicy": true
+    }
+   ]
+  }
+ ],
+ "failures": []
+}

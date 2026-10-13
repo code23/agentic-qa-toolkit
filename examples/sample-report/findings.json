@@ -1,0 +1,417 @@
+{
+ "run_id": "tidewick-demo-2026-07-15",
+ "target": "http://127.0.0.1:8765",
+ "date": "2026-07-15",
+ "verdict": "FAIL",
+ "scores": {
+  "qa-functional": 8.0,
+  "ux": 5.5,
+  "accessibility": null,
+  "performance": null,
+  "seo-ai": 7.5,
+  "security-privacy": 0,
+  "content": 6.5,
+  "cms-code": null
+ },
+ "coverage": {
+  "qa-functional": {
+   "status": "partial",
+   "checks": [
+    "dev_artefacts.js: console errors, page errors, failed requests on 5 pages"
+   ],
+   "note": "no flows walked in a browser; forms not exercised"
+  },
+  "ux": {
+   "status": "partial",
+   "checks": [
+    "viewport_overflow.js: 5 pages at 320, 375, 768, 1024, 1440"
+   ],
+   "note": "no executor walk, no design review, no global chrome gate"
+  },
+  "accessibility": {
+   "status": "not-executed",
+   "checks": [],
+   "note": "no automated scan and no keyboard walk in this sample"
+  },
+  "performance": {
+   "status": "not-executed",
+   "checks": [],
+   "note": "no lab runs in this sample"
+  },
+  "seo-ai": {
+   "status": "partial",
+   "checks": [
+    "similarity.py: 3 location-style pages",
+    "copy_freshness.py: title vs address on 8 pages"
+   ],
+   "note": "titles, canonicals, structured data and links not reviewed"
+  },
+  "security-privacy": {
+   "status": "partial",
+   "checks": [
+    "consent_capture.js: 3 pages at 375 and 1366, Accept and Reject, policy comparison",
+    "dev_artefacts.js: source maps on 5 pages"
+   ],
+   "note": "TLS, headers and exposed paths not checked (local demo server)"
+  },
+  "content": {
+   "status": "partial",
+   "checks": [
+    "copy_freshness.py: 8 pages",
+    "dev_artefacts.js: debug markup on 5 pages"
+   ],
+   "note": "names, numbers and tone not read by a person"
+  },
+  "cms-code": {
+   "status": "not-in-scope",
+   "checks": [],
+   "note": "not in the charter"
+  }
+ },
+ "checks_run": [
+  {
+   "rule": "overflow*",
+   "template": "*"
+  },
+  {
+   "rule": "artefacts:*",
+   "template": "*"
+  },
+  {
+   "rule": "copy:*",
+   "template": "*"
+  },
+  {
+   "rule": "similarity:*",
+   "template": "location"
+  },
+  {
+   "rule": "similarity:*",
+   "template": "service"
+  },
+  {
+   "rule": "consent:*",
+   "template": "home",
+   "url": "http://127.0.0.1:8765/index.html"
+  },
+  {
+   "rule": "consent:*",
+   "template": "pricing",
+   "url": "http://127.0.0.1:8765/pricing.html"
+  },
+  {
+   "rule": "consent:*",
+   "template": "contact",
+   "url": "http://127.0.0.1:8765/contact.html"
+  }
+ ],
+ "tooling": {
+  "note": "headless scripts only; no Lighthouse or accessibility engine in this sample"
+ },
+ "findings": [
+  {
+   "id": "TDW-01",
+   "title": "An analytics cookie is set before the visitor makes any consent choice",
+   "severity": "S2",
+   "priority": "P1",
+   "verification": "independently-reproduced",
+   "label": "DET+JUDG",
+   "dimension": "security-privacy",
+   "template": "home",
+   "url": "http://127.0.0.1:8765/index.html",
+   "rule": "consent:pre-consent-tracking",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/consent.json"
+   ],
+   "fingerprint": "b43e093e10a9"
+  },
+  {
+   "id": "TDW-02",
+   "title": "Choosing Reject on the pricing page still sets an analytics cookie",
+   "severity": "S2",
+   "priority": "P1",
+   "verification": "independently-reproduced",
+   "label": "DET+JUDG",
+   "dimension": "security-privacy",
+   "template": "pricing",
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "rule": "consent:reject-not-honoured",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/consent.json"
+   ],
+   "fingerprint": "25ad9a1f79da"
+  },
+  {
+   "id": "TDW-03",
+   "title": "A vendor that loads after Accept is not named in the privacy policy",
+   "severity": "S3",
+   "priority": "P2",
+   "verification": "evidence-reviewed",
+   "label": "DET+JUDG",
+   "dimension": "security-privacy",
+   "template": "home",
+   "url": "http://127.0.0.1:8765/index.html",
+   "rule": "consent:vendor-missing-from-policy",
+   "scope": "sitewide",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/consent.json"
+   ],
+   "fingerprint": "8d9777014a27"
+  },
+  {
+   "id": "TDW-04",
+   "title": "The fixed header covers the page heading on the mobile service page at every width",
+   "severity": "S3",
+   "priority": "P2",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "ux",
+   "template": "service",
+   "url": "http://127.0.0.1:8765/mobile-service.html",
+   "rule": "overflow:header-covers-h1",
+   "scope": "template",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/overflow.json",
+    "screenshots/mobile-service-375-heading.png"
+   ],
+   "fingerprint": "f1fd7cc3141f"
+  },
+  {
+   "id": "TDW-05",
+   "title": "The standard service price shown on phones differs from the price shown on desktop",
+   "severity": "S3",
+   "priority": "P2",
+   "verification": "evidence-reviewed",
+   "label": "DET+JUDG",
+   "dimension": "ux",
+   "template": "pricing",
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "rule": "overflow:breakpoint-price-differs",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/overflow.json",
+    "screenshots/pricing-375-price.png",
+    "screenshots/pricing-1440-price.png"
+   ],
+   "fingerprint": "065b34eca6a4"
+  },
+  {
+   "id": "TDW-06",
+   "title": "Two location pages are near-duplicates once the town name is masked",
+   "severity": "S3",
+   "priority": "P3",
+   "verification": "evidence-reviewed",
+   "label": "DET+JUDG",
+   "dimension": "seo-ai",
+   "template": "location",
+   "url": "http://127.0.0.1:8765/brindlemere.html",
+   "rule": "similarity:near-duplicate",
+   "scope": "template",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/similarity.json"
+   ],
+   "fingerprint": "563344556562"
+  },
+  {
+   "id": "TDW-07",
+   "title": "Placeholder text is visible on the contact page",
+   "severity": "S3",
+   "priority": "P2",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "content",
+   "template": "contact",
+   "url": "http://127.0.0.1:8765/contact.html",
+   "rule": "copy:placeholder",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/copy.json",
+    "evidence/artefacts.json"
+   ],
+   "fingerprint": "7c1826bf610e"
+  },
+  {
+   "id": "TDW-08",
+   "title": "The home page scrolls sideways at tablet width (768 px)",
+   "severity": "S4",
+   "priority": "P3",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "ux",
+   "template": "home",
+   "url": "http://127.0.0.1:8765/index.html",
+   "rule": "overflow-x:768",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/overflow.json",
+    "screenshots/home-768-overflow.png"
+   ],
+   "fingerprint": "e7beecd0b9e3"
+  },
+  {
+   "id": "TDW-09",
+   "title": "The pricing page shows a past quarter, an old 'last updated' year and an old copyright year",
+   "severity": "S4",
+   "priority": "P3",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "content",
+   "template": "pricing",
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "rule": "copy:stale-dates",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/copy.json"
+   ],
+   "fingerprint": "f3ae48faeb7d"
+  },
+  {
+   "id": "TDW-10",
+   "title": "The contact page says GMT while the UK is on summer time",
+   "severity": "S4",
+   "priority": "P4",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "content",
+   "template": "contact",
+   "url": "http://127.0.0.1:8765/contact.html",
+   "rule": "copy:timezone-label",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/copy.json"
+   ],
+   "fingerprint": "baa75154b163"
+  },
+  {
+   "id": "TDW-11",
+   "title": "Debug and test markup is left in the pricing and contact pages",
+   "severity": "S4",
+   "priority": "P3",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "content",
+   "template": "pricing",
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "rule": "artefacts:debug-markup",
+   "scope": "sitewide",
+   "status": "open",
+   "instances": 2,
+   "evidence": [
+    "evidence/artefacts.json"
+   ],
+   "fingerprint": "ea1225ead8c7"
+  },
+  {
+   "id": "TDW-12",
+   "title": "A source map is publicly reachable next to its script on the pricing page",
+   "severity": "S4",
+   "priority": "P3",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "security-privacy",
+   "template": "pricing",
+   "url": "http://127.0.0.1:8765/pricing.html",
+   "rule": "artefacts:source-map",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/artefacts.json"
+   ],
+   "fingerprint": "b98cde7f9c85"
+  },
+  {
+   "id": "TDW-13",
+   "title": "A script error is thrown on the mobile service page",
+   "severity": "S4",
+   "priority": "P3",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "qa-functional",
+   "template": "service",
+   "url": "http://127.0.0.1:8765/mobile-service.html",
+   "rule": "artefacts:page-error",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/artefacts.json"
+   ],
+   "fingerprint": "e3660eb80b18"
+  },
+  {
+   "id": "TDW-14",
+   "title": "The contact page requests a missing resource and logs console errors",
+   "severity": "S4",
+   "priority": "P3",
+   "verification": "evidence-reviewed",
+   "label": "DET",
+   "dimension": "qa-functional",
+   "template": "contact",
+   "url": "http://127.0.0.1:8765/contact.html",
+   "rule": "artefacts:failed-request",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/artefacts.json"
+   ],
+   "fingerprint": "95beae03b1ca"
+  },
+  {
+   "id": "TDW-15",
+   "title": "The mobile service page's title does not match its address",
+   "severity": "S4",
+   "priority": "P4",
+   "verification": "evidence-reviewed",
+   "label": "DET+JUDG",
+   "dimension": "seo-ai",
+   "template": "service",
+   "url": "http://127.0.0.1:8765/mobile-service.html",
+   "rule": "copy:title-slug-mismatch",
+   "scope": "page",
+   "status": "open",
+   "instances": 1,
+   "evidence": [
+    "evidence/copy.json"
+   ],
+   "fingerprint": "e002637462af"
+  }
+ ],
+ "improvements": [
+  {
+   "id": "IMP-01",
+   "title": "Give each location page its own local detail: staff, directions, a photo, opening hours",
+   "dimension": "seo-ai",
+   "rationale": "Removes the near-duplicate risk and gives each page a reason to exist."
+  },
+  {
+   "id": "IMP-02",
+   "title": "Show the same next step at the end of every page",
+   "dimension": "ux",
+   "rationale": "Not measured in this sample; a browser walk would confirm where pages dead-end."
+  }
+ ]
+}
