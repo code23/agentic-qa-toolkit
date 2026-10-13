@@ -72,10 +72,12 @@ describe('demo-site/serve.py', { skip: python ? false : 'python3 not found' }, (
   before(async () => {
     child = spawn(python, [path.join(SITE, 'serve.py'), '--port', '0']);
     base = await new Promise((resolve, reject) => {
-      let buf = '';
-      const timer = setTimeout(() => reject(new Error('serve.py did not print its URL')), 10000);
+      let buf = '', err = '';
+      const started = Date.now();
+      const timer = setTimeout(() => reject(new Error(`serve.py did not print its URL within 60 s; stdout: ${JSON.stringify(buf)}; stderr: ${JSON.stringify(err.slice(-500))}`)), 60000);
       child.stdout.on('data', d => { buf += d; const m = /(http:\/\/127\.0\.0\.1:\d+)\//.exec(buf); if (m) { clearTimeout(timer); resolve(m[1]); } });
-      child.on('exit', c => { clearTimeout(timer); reject(new Error(`serve.py exited ${c}`)); });
+      child.stderr.on('data', d => { err += d; });
+      child.on('exit', c => { clearTimeout(timer); reject(new Error(`serve.py exited ${c} after ${Date.now() - started} ms; stderr: ${JSON.stringify(err.slice(-500))}`)); });
     });
   });
   after(() => child && child.kill());

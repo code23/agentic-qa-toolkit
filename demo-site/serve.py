@@ -9,6 +9,7 @@ import argparse
 import functools
 import http.server
 import pathlib
+import socketserver
 
 ROOT = pathlib.Path(__file__).resolve().parent
 
@@ -24,6 +25,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass  # keep the terminal quiet; the URL is printed once at start-up
 
 
+class Server(http.server.ThreadingHTTPServer):
+    def server_bind(self):
+        # The standard server_bind looks up the machine's full host name, which can take many
+        # seconds on some machines. The server only ever listens on 127.0.0.1, so skip it.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--port', type=int, default=8765, help='port to listen on (default 8765; 0 = any free port)')
@@ -31,7 +40,7 @@ def main():
     if not 0 <= args.port <= 65535:
         ap.error('--port must be between 0 and 65535')
     handler = functools.partial(Handler, directory=str(ROOT))
-    with http.server.ThreadingHTTPServer(('127.0.0.1', args.port), handler) as srv:
+    with Server(('127.0.0.1', args.port), handler) as srv:
         print(f'Serving the demo site at http://127.0.0.1:{srv.server_address[1]}/ (Ctrl+C to stop)', flush=True)
         try:
             srv.serve_forever()

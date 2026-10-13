@@ -50,6 +50,12 @@ jobs:
       - name: Install ShellCheck (not on the macOS image)
         if: runner.os == 'macOS'
         run: brew install shellcheck
+      - name: Environment facts
+        shell: bash
+        run: |
+          node --version; python3 --version; command -v python3; shellcheck --version | sed -n 2p
+          "$CHROME_PATH" --version || true
+          python3 -c "import socket, time; t = time.time(); socket.getfqdn('127.0.0.1'); print('host name lookup for 127.0.0.1: %.2f s' % (time.time() - t))"
       - name: Run every check
         env:
           QA_CHECK_LOG_DIR: ${{ runner.temp }}/check-logs
