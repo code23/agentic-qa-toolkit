@@ -428,7 +428,7 @@ under test stays in place and is still the thing measured. An off-scope
 navigation makes that URL a failure. A page that never goes network-idle is still accepted
 only if its main document returned a good status and an HTML type.
 
-Setup: Node 20+. Node scripts need `puppeteer-core` (not full puppeteer) and a
+Setup: Node 22.12+ and `puppeteer-core` 25. Node scripts need `puppeteer-core` (not full puppeteer) and a
 Chrome/Chromium binary (`CHROME_PATH`; the default is Google Chrome's standard path on macOS or Linux). Use an existing
 install via `NODE_PATH` (e.g. a scratch tools folder's `node_modules`). **Never run `npm` inside
 the skill folder** (its `package.json` is a dependency note only); a new `npm install` in a

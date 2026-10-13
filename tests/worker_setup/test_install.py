@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
+import shutil
 import stat
 import subprocess
 import time
@@ -165,9 +167,14 @@ class ApplyTest(unittest.TestCase):
         self.assertIn(f"{base}/runner.sh", plist)
         self.assertIn(f"<string>{LABEL}</string>", plist)
         self.assertNotIn("__", plist)
-        lint = subprocess.run(["plutil", "-lint", str(self.mac.home / f"Library/LaunchAgents/{LABEL}.plist")],
-                              capture_output=True, text=True)
-        self.assertEqual(lint.returncode, 0, lint.stdout)
+        plist_path = self.mac.home / f"Library/LaunchAgents/{LABEL}.plist"
+        with open(plist_path, "rb") as fh:
+            parsed = plistlib.load(fh)
+        self.assertEqual(parsed["Label"], LABEL)
+        self.assertEqual(parsed["ProgramArguments"], ["/bin/bash", f"{base}/runner.sh"])
+        if shutil.which("plutil"):  # macOS only; plistlib above checks the same file everywhere
+            lint = subprocess.run(["plutil", "-lint", str(plist_path)], capture_output=True, text=True)
+            self.assertEqual(lint.returncode, 0, lint.stdout)
         self.assertTrue((base / "runtime-instructions.md").is_file())
         self.assertIn(f"launchctl bootstrap gui/502 {self.mac.home}/Library/LaunchAgents/{LABEL}.plist", self.mac.calls())
         self.assertIn("Manual steps", r.stderr)

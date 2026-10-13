@@ -219,7 +219,7 @@ selfcheck() {
   console=$(printf 'show State:/Users/ConsoleUser\n' | scutil 2>/dev/null | awk '/ Name :/ {print $3; exit}')
   [ "$console" = "$me" ] && in_gui=true
 
-  tmpimg=$(mktemp -t qa-worker-selfcheck).png
+  tmpimg=$(mktemp "${TMPDIR:-/tmp}/qa-worker-selfcheck.XXXXXX").png
   if screencapture -x "$tmpimg" >/dev/null 2>&1 && [ -s "$tmpimg" ]; then
     shot_ok=true
     shot_bytes=$(wc -c < "$tmpimg" | tr -d ' ')

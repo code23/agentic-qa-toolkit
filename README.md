@@ -91,7 +91,7 @@ with checksums.
 
 - An AI coding agent that supports skills (folders with a `SKILL.md`).
 - For the scripts: Python 3.9+ with the packages in the two `requirements.txt` files under
-  `skills/`, Node 20+ with `puppeteer-core`, and Chrome or Chromium.
+  `skills/`, Node 22.12+ with `puppeteer-core` 25, and Chrome or Chromium.
 - macOS or Linux. The Dedicated QA Mac edition needs a Mac for the worker.
 
 ## What's in the repository

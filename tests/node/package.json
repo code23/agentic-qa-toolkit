@@ -3,12 +3,12 @@
   "private": true,
   "description": "Offline tests for the qa-site-audit headless-browser scripts, run against the fictional demo site.",
   "engines": {
-    "node": ">=20.11"
+    "node": ">=22.12"
   },
   "scripts": {
     "test": "node run-tests.js"
   },
   "devDependencies": {
-    "puppeteer-core": "23.11.1"
+    "puppeteer-core": "25.13.0"
   }
 }

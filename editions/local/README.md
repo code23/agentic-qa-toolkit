@@ -24,7 +24,7 @@ change is the one testing it. For sign-off, use the dedicated QA Mac or hosted Q
 2. Give the agent a browser tool if it does not have one.
 3. Report scripts (`report_check.py`, `report_export.py`, used whenever a report
    has screenshots): Python 3.9+ with `markdown`, and Chrome for a PDF. Optional, for the headless
-   scripts: Node 20+, `puppeteer-core` and Google Chrome; Python
+   scripts: Node 22.12+, `puppeteer-core` 25 and Google Chrome; Python
    3.9+ with `requests`, `beautifulsoup4` and `lxml`. Install `puppeteer-core` in a scratch
    folder and point `NODE_PATH` at it. Do not run `npm install` inside the skill folder.
 4. Optional: set `QA_RUNS` to where run folders should live (default `~/qa-runs`).

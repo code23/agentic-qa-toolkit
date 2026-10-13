@@ -1,3 +1,3 @@
 { "name": "qa-site-audit-scripts", "private": true, "description": "Lead-side headless checks for the qa-site-audit skill. Do not npm install inside the skill folder; use NODE_PATH to an existing install.",
-  "engines": { "node": ">=20" },
-  "dependencies": { "puppeteer-core": "^23.0.0" } }
+  "engines": { "node": ">=22.12" },
+  "dependencies": { "puppeteer-core": "^25.0.0" } }

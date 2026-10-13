@@ -21,15 +21,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, python: "3.9", node: "20" }
-          - { os: ubuntu-latest, python: "3.13", node: "22" }
-          - { os: macos-latest, python: "3.13", node: "22" }
+          - { os: ubuntu-latest, python: "3.9", node: "22" }
+          - { os: ubuntu-latest, python: "3.13", node: "24" }
+          - { os: macos-latest, python: "3.13", node: "24" }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
       - name: Install Python packages
@@ -51,4 +51,13 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install shellcheck
       - name: Run every check
+        env:
+          QA_CHECK_LOG_DIR: ${{ runner.temp }}/check-logs
         run: tools/check.sh --strict
+      - name: Keep the full check output when something failed
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: check-logs-${{ matrix.os }}-py${{ matrix.python }}
+          path: ${{ runner.temp }}/check-logs
+          retention-days: 7

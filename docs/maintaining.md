@@ -35,7 +35,8 @@ python3 -m venv .venv && .venv/bin/pip install -r skills/qa-site-audit/scripts/r
 tools/check.sh
 ```
 
-Every check prints PASS, FAIL or NOT RUN. NOT RUN means a dependency was missing, and it is
+Every check prints PASS, FAIL, NOT RUN or N/A. N/A means the check does not apply on this
+operating system (the worker setup tests run on macOS only). NOT RUN means a dependency was missing, and it is
 not a pass.
 
 ## The package scan

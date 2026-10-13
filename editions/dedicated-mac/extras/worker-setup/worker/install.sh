@@ -87,7 +87,8 @@ sc_get() {
   sed -n -e "s/^ *\"$1\": *\"\(.*\)\",\{0,1\}$/\1/p" -e "s/^ *\"$1\": *\([^\",]*\),\{0,1\}$/\1/p" "$SELFCHECK_FILE" | head -1
 }
 
-file_mtime() { stat -f %m "$1" 2>/dev/null || echo 0; }
+# GNU stat first: BSD stat rejects -c (no stdout), while GNU stat -f prints file-system info.
+file_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
 
 agent_loaded() { launchctl print "gui/$UID_NUM/$1" >/dev/null 2>&1; }
 
