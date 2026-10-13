@@ -12,7 +12,13 @@ updates:
     directory: /skills/qa-site-audit/scripts
     schedule:
       interval: monthly
+    # These files state the oldest versions the scripts support. Only raise a floor when a
+    # new release no longer fits the range, not every time something newer exists.
+    versioning-strategy: increase-if-necessary
   - package-ecosystem: pip
     directory: /skills/qa-standards/scripts
     schedule:
       interval: monthly
+    # These files state the oldest versions the scripts support. Only raise a floor when a
+    # new release no longer fits the range, not every time something newer exists.
+    versioning-strategy: increase-if-necessary
