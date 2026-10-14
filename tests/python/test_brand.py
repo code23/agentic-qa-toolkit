@@ -185,11 +185,44 @@ class Files(BrandCase):
                 self.assertEqual(len(probs), 1, probs)
                 self.assertTrue(probs[0].startswith("logo:"))
 
-    def test_logo_extension_and_svg_rules(self):
+    def svg_problems(self, text):
+        return self.problems(self.spec(logo="logo.svg"), **{"logo.svg": text})
+
+    def test_logo_extension_rule(self):
         self.assertOneProblem("logo: must be one of", self.spec(logo="logo.gif"), **{"logo.gif": img.GIF})
-        self.assertEqual(self.problems(self.spec(logo="logo.svg"), **{"logo.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>'}), [])
-        self.assertOneProblem("not an SVG document", self.spec(logo="logo.svg"), **{"logo.svg": "<html></html>"})
-        self.assertOneProblem("entities", self.spec(logo="logo.svg"), **{"logo.svg": '<!DOCTYPE svg [<!ENTITY a "b">]><svg/>'})
+
+    def test_a_real_svg_is_accepted_with_or_without_a_namespace(self):
+        self.assertEqual(self.svg_problems('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>'), [])
+        self.assertEqual(self.svg_problems('<?xml version="1.0" encoding="UTF-8"?>\n<svg width="4" height="4"><rect width="4" height="4"/></svg>'), [])
+
+    def test_svg_lookalikes_are_refused(self):
+        cases = {
+            "text that merely mentions svg": ("not XML <svg", "not well-formed XML"),
+            "svg-like root name": ("<svg-not-real/>", "root element is 'svg-not-real'"),
+            "html page containing an svg": ("<html><body><svg/></body></html>", "root element is 'html'"),
+            "wrong namespace": ('<svg xmlns="http://example.com/not-svg"/>', "root element"),
+            "unclosed": ('<svg xmlns="http://www.w3.org/2000/svg"><g>', "not well-formed XML"),
+            "empty": ("", "not well-formed XML"),
+            "binary": (b"\xff\xfe<svg/>", "not UTF-8"),
+        }
+        for label, (text, expect) in cases.items():
+            with self.subTest(label):
+                probs = self.svg_problems(text)
+                self.assertEqual(len(probs), 1, probs)
+                self.assertTrue(probs[0].startswith("logo:") and expect in probs[0], probs)
+
+    def test_doctype_and_entity_declarations_are_refused_before_any_parsing(self):
+        import time
+        laughs = ('<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">' + "".join(f'<!ENTITY lol{n+1} "{"&lol%s;" % (n if n else "") * 10}">' for n in range(1, 9))
+                  + ']><svg xmlns="http://www.w3.org/2000/svg"><text>&lol9;</text></svg>')
+        for label, text in (("billion laughs", laughs), ("doctype only", '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://example.com/svg11.dtd"><svg/>'),
+                            ("entity", '<!ENTITY a "b"><svg/>'), ("spaced and mixed case", '<! DocType svg><svg/>')):
+            with self.subTest(label):
+                t0 = time.time()
+                probs = self.svg_problems(text)
+                self.assertLess(time.time() - t0, 1)
+                self.assertEqual(len(probs), 1, probs)
+                self.assertIn("DOCTYPE or ENTITY declaration, which is not allowed", probs[0])
 
     def test_an_svg_with_script_or_external_references_is_accepted_with_a_note(self):
         self.make(self.spec(logo="logo.svg"), **{"logo.svg": '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script><image href="http://example.com/x.png"/></svg>'})
@@ -211,13 +244,78 @@ class Files(BrandCase):
         self.assertOneProblem("fonts.body", self.spec(fonts={"body": {"family": "X"}}))
 
 
+class Unreadable(BrandCase):
+    def lock(self, rel):
+        p = self.brand / rel
+        p.chmod(0)
+        self.addCleanup(lambda: p.chmod(0o644))
+        try:
+            p.read_bytes()
+        except OSError:
+            return
+        self.skipTest("this account can read files with no permissions (running as root?)")
+
+    def test_files_that_exist_but_cannot_be_read_are_problems_not_crashes(self):
+        for rel, key in (("logo.png", "logo"), ("fonts/serif.woff2", "fonts.heading.file"), ("fonts/sans.woff2", "fonts.body.file"),
+                         ("report.css", "report.css"), ("cover.md", "cover.md"), ("brand.json", "brand.json")):
+            with self.subTest(rel):
+                self.make(None, **{"report.css": "a { color: red }", "cover.md": "# {title}\n"})
+                self.lock(rel)
+                probs = BC.check_brand(self.brand).problems
+                self.assertEqual(len(probs), 1, probs)
+                self.assertTrue(probs[0].startswith(key + ":"), probs)
+                self.assertIn(Path(rel).name, probs[0])
+                self.assertIn("PermissionError", probs[0])
+                (self.brand / rel).chmod(0o644)
+
+    def test_the_cli_reports_it_and_exits_1(self):
+        self.make()
+        self.lock("logo.png")
+        r = qs.run_script(CHECK, self.brand)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertIn("logo: cannot read logo.png", r.stdout)
+
+    def test_an_unreadable_folder_is_a_problem_too(self):
+        self.make()
+        d = self.brand / "fonts"
+        d.chmod(0)
+        self.addCleanup(lambda: d.chmod(0o755))
+        try:
+            list(d.iterdir())
+            self.skipTest("this account can read folders with no permissions (running as root?)")
+        except OSError:
+            pass
+        probs = BC.check_brand(self.brand).problems
+        self.assertEqual(len(probs), 2, probs)
+        self.assertTrue(all(p.startswith("fonts.") for p in probs))
+
+
 class Css(BrandCase):
     def css(self, text):
         return self.problems(None, **{"report.css": text})
 
-    def test_plain_css_and_data_uris_are_fine(self):
-        self.assertEqual(self.css("h2 { border-bottom: 2px solid var(--accent); } /* @import url(http://x) in a comment is fine */"), [])
-        self.assertEqual(self.css('.x { background: url("data:image/png;base64,AAAA"); } @font-face { font-family: Z; src: url(data:font/woff2;base64,AAAA); }'), [])
+    def test_plain_css_is_fine_and_comments_are_ignored(self):
+        self.assertEqual(self.css("h2 { border-bottom: 2px solid var(--accent); } /* @import url(http://x) and @media print in a comment are fine */"), [])
+        self.assertEqual(self.css("figure img { border-radius: 4px; } .cover { text-align: left; } th { background: #eee; }"), [])
+
+    def test_every_url_is_refused_data_uris_included(self):
+        for css in ('.x { background: url("data:image/png;base64,AAAA"); }', "@font-face { font-family: Z; src: url(data:font/woff2;base64,AAAA); }",
+                    ".x { background: URL( data:image/png;base64,AAAA ); }", ".x { background: u\\72l(data:image/png;base64,AAAA); }"):
+            with self.subTest(css[:30]):
+                self.assertTrue(any("url()" in p for p in self.css(css)), self.css(css))
+
+    def test_conditional_and_print_specific_at_rules_are_refused(self):
+        for rule in ("@media print { figure { display: none; } }", "@media screen { a { color: red } }", "@MEDIA print { x { y: z } }", "@supports (display: grid) { a { b: c } }",
+                     "@container (min-width: 10px) { a { b: c } }", "@layer base { a { b: c } }", "@scope (.x) { a { b: c } }", "@page { margin: 0 }",
+                     "@page :first { margin: 0 }", "@m\\65 dia print { figure { display: none } }", "@\\6d edia print { x { y: z } }", "@page { @bottom-center { content: 'x' } }"):
+            with self.subTest(rule):
+                probs = self.css(rule)
+                self.assertTrue(any("conditional and print-specific rules are not allowed" in p for p in probs), probs)
+
+    def test_at_rules_that_are_still_allowed(self):
+        self.assertEqual(self.css("@keyframes fade { from { opacity: 1 } to { opacity: .9 } } a { animation: none; }"), [])
+
 
     def test_network_references_are_refused(self):
         bad = {
@@ -518,6 +616,76 @@ class ScreenshotsStayDistinctFromBrandImages(ExportCase):
         self.assertEqual(page.count("<img "), 3)
         self.assertEqual([alt for _, alt in EX.report_figures(page)],
                          ["Booking button missing at 375 px wide", "Contact form after submitting an empty email field"])
+
+
+@unittest.skipUnless(CHROME_OK, f"Chrome not found at {EX.CHROME}; set CHROME_PATH to run the real PDF tests")
+class HiddenScreenshots(ExportCase):
+    """A stylesheet must not be able to make the exporter accept a PDF without its screenshots."""
+
+    def test_report_css_with_print_rules_is_refused_at_validation(self):
+        self.make(None, **{"report.css": "@media print { figure { display: none } }"})
+        r, data = self.export("--brand", self.brand)
+        self.assertEqual((r.returncode, data), (1, None))
+        self.assertIn("brand: report.css: uses @media", r.stdout)
+
+    def test_the_probe_reports_each_way_of_hiding_a_figure_and_leaves_a_normal_one_alone(self):
+        hiding = ["display: none", "visibility: hidden", "opacity: 0", "width: 0; height: 0", "max-height: 0; overflow: hidden", "transform: scale(0)",
+                  "clip-path: inset(100%)", "position: absolute; left: -9999px", "filter: opacity(0)", "content-visibility: hidden"]
+        self.make()
+        res = BC.check_brand(self.brand)
+        brand = res.brand
+        brand["css"] = "\n".join(f"figure:nth-of-type({n}) {{ {rule}; }}" for n, rule in enumerate(hiding, start=1))
+        shots = self.run_dir / "screenshots"
+        text = "\n\n".join(f"![Shot {n}](screenshots/home.png)" for n in range(1, len(hiding) + 2)) + "\n"
+        (self.run_dir / "report.md").write_text(text, encoding="utf-8")
+        check = EX.report_check.check(self.run_dir / "report.md")
+        imgs = {e["src"]: {"path": e["path"], "mime": e["mime"]} for e in check.embedded if e["path"]}
+        page, rend = EX.build_html(text, imgs, brand, "2026-10-14")
+        ok, not_loaded, not_shown, err = EX.probe_details(page)
+        self.assertEqual((ok, not_loaded), (True, []), err)
+        self.assertEqual(not_shown, list(range(len(hiding))), "every hiding rule must be caught; the last figure (no rule) must pass")
+
+    def test_the_probe_with_the_brand_validation_bypassed_reports_the_hidden_figure_by_number(self):
+        self.make()
+        brand = BC.check_brand(self.brand).brand
+        brand["css"] = "figure { display: none; }"
+        text = "# R\n\n![Only screenshot](screenshots/home.png)\n"
+        (self.run_dir / "report.md").write_text(text, encoding="utf-8")
+        check = EX.report_check.check(self.run_dir / "report.md")
+        imgs = {e["src"]: {"path": e["path"], "mime": e["mime"]} for e in check.embedded if e["path"]}
+        page, _ = EX.build_html(text, imgs, brand, "2026-10-14")
+        self.assertEqual(EX.probe_decode(page)[:2], (True, [0]))
+
+    def test_end_to_end_a_stylesheet_that_hides_the_only_screenshot_cannot_ship_a_logo_only_pdf(self):
+        (self.run_dir / "report.md").write_text("# R\n\n![Only screenshot](screenshots/home.png)\n", encoding="utf-8")
+        self.make(None, **{"report.css": "figure { display: none; }"})   # passes validation: only the probe can see this
+        self.assertEqual(BC.check_brand(self.brand).problems, [])
+        r, data = self.export("--brand", self.brand, pdf=True)
+        self.assertEqual((r.returncode, data), (1, None), r.stdout + r.stderr)
+        self.assertIn('loaded but are not visibly shown in the page', r.stdout)
+        self.assertIn('image 1 ("Only screenshot")', r.stdout)
+        self.assertIn("Not exporting a PDF", r.stdout)
+
+    def test_a_logo_only_pdf_fails_verification_because_the_logo_is_added_to_the_target(self):
+        import tempfile as tf
+        pdf = Path(tf.mkdtemp()) / "logo-only.pdf"
+        self.addCleanup(shutil.rmtree, pdf.parent, True)
+        pdf.write_bytes(b"%PDF-1.7\n1 0 obj\n<< /Type /XObject /Subtype /Image /Width 1 /Height 1 >>\nstream\nX\nendstream\nendobj\n%%EOF\n")
+        self.assertEqual(EX.verify_pdf(pdf, 2)[:1], (False,))   # one screenshot + the raster logo
+        self.assertTrue(EX.verify_pdf(pdf, 1)[0])
+
+    def test_a_logo_that_is_byte_identical_to_a_screenshot_is_not_double_counted(self):
+        self.make()
+        (self.brand / "logo.png").write_bytes((self.run_dir / "screenshots" / "home.png").read_bytes())
+        r, data = self.export("--brand", self.brand, pdf=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_allow_missing_exports_past_a_hidden_screenshot_and_still_warns(self):
+        (self.run_dir / "report.md").write_text("# R\n\n![Only screenshot](screenshots/home.png)\n\n![Second](screenshots/contact.png)\n", encoding="utf-8")
+        self.make(None, **{"report.css": "figure:first-of-type { display: none; }"})
+        r, data = self.export("--brand", self.brand, "--allow-missing", pdf=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("not visibly shown", r.stdout)
 
 
 @unittest.skipUnless(CHROME_OK, f"Chrome not found at {EX.CHROME}; set CHROME_PATH to run the real PDF tests")

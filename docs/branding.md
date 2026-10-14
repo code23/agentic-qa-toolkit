@@ -71,8 +71,14 @@ Use `--brand /path/to/other-brand` to export one report under a different brand,
 - **The method.** Severity, priority, evidence, coverage and the verdict rule come from
   qa-standards. `brand.md` decides how a report reads, not what it concludes.
 - **The safety rules.** Every brand file must sit inside the brand folder and is inlined
-  into the export. The export still loads nothing from the network: `report.css` may not use
-  `@import` or a `url()` that is not a `data:` URI, and an SVG logo is shown as an image, so
-  any script or link inside it does nothing.
-- **The screenshot checks.** The logo is not counted as a screenshot. A report still fails
-  if one of its screenshots is missing or will not load.
+  into the export, which still loads nothing from the network. An SVG logo is shown as an
+  image, so any script or link inside it does nothing.
+- **What `report.css` may contain.** Ordinary styling: colours, spacing, type, borders.
+  It is refused if it contains any `url()` (including `data:`), `@import`, `@media`,
+  `@supports`, `@container`, `@layer`, `@scope`, `@page`, `@namespace`, `image-set()`,
+  `src()`, `expression()` or markup such as `</`. Fonts and the logo come through
+  `brand.json`; print behaviour comes from the exporter.
+- **The screenshot checks.** The logo is not counted as a screenshot. Before printing, the
+  exporter loads the page with your styling and checks that every screenshot loads and is
+  actually visible at a readable size. A report fails if any screenshot is missing, will not
+  load or has been hidden.

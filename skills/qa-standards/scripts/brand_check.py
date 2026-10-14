@@ -8,7 +8,7 @@ A brand pack is a folder holding:
   logo.svg | logo.png | logo.webp | logo.jpg   optional, named in brand.json
   fonts/*.woff2 | .woff | .ttf | .otf          optional, named in brand.json
   cover.md     optional cover page template: {title} {date} {brand} {prepared_by} {contact} {confidentiality}
-  report.css   optional extra styling (no @import, no url() that is not a data: URI)
+  report.css   optional extra styling (no @import, no url(), no @media/@supports/@container/@layer/@scope/@page)
   brand.md     optional, for the agent only (voice and structure); ignored here and by the exporter
 
 brand.json:
@@ -26,6 +26,7 @@ so a script or external reference inside it cannot run or load). Fonts need a kn
 Exit: 0 clean, 1 problems, 2 usage error (not a folder, or the `markdown` package is missing).
 """
 import argparse, base64, json, os, re, sys
+import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -70,12 +71,42 @@ def safe_file(root, rel, where, res):
     if not parts or any(p in ('..', '.') for p in parts):
         res.problem(where, f'must not contain . or .. segments: {rel!r}'); return None
     cur = root
-    for part in parts:
-        cur = cur / part
-        if cur.is_symlink(): res.problem(where, f'{rel} is (or passes through) a symlink; copy the real file into the brand folder'); return None
-    if not cur.exists(): res.problem(where, f'file does not exist: {rel}'); return None
-    if not cur.is_file(): res.problem(where, f'not a regular file: {rel}'); return None
+    try:
+        for part in parts:
+            cur = cur / part
+            if cur.is_symlink(): res.problem(where, f'{rel} is (or passes through) a symlink; copy the real file into the brand folder'); return None
+        if not cur.exists(): res.problem(where, f'file does not exist: {rel}'); return None
+        if not cur.is_file(): res.problem(where, f'not a regular file: {rel}'); return None
+    except OSError as e:
+        res.problem(where, f'cannot look at {rel} ({type(e).__name__}: {e.strerror or "no access"})'); return None
     return cur
+
+
+def read_limited(p, limit, where, res):
+    """Bytes of file p, or None with a problem recorded when it is unreadable or larger than limit (checked before reading)."""
+    try:
+        size = p.stat().st_size
+        if size > limit:
+            res.problem(where, f'is larger than {limit // 1024} KB' if limit < 1024 * 1024 else f'is larger than {limit // 1024 // 1024} MB'); return None
+        return p.read_bytes()
+    except OSError as e:
+        res.problem(where, f'cannot read {p.name} ({type(e).__name__}: {e.strerror or "no access"}); fix its permissions'); return None
+
+
+def svg_error(data):
+    """None for an SVG document the standard library can parse safely, else the reason. DOCTYPE and ENTITY are refused before
+    parsing, so nothing can expand."""
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError:
+        return 'is not UTF-8 text'
+    if re.search(r'<!\s*(?:DOCTYPE|ENTITY)', text, re.I): return 'SVG has a DOCTYPE or ENTITY declaration, which is not allowed'
+    try:
+        root = ET.fromstring(data)
+    except (ET.ParseError, ValueError, RecursionError) as e:
+        return f'is not well-formed XML ({str(e)[:80]})'
+    if root.tag not in ('{http://www.w3.org/2000/svg}svg', 'svg'): return f'is not an SVG document (the root element is {root.tag[:60]!r}, not svg)'
+    return None
 
 
 def normalise_css(css):
@@ -85,16 +116,25 @@ def normalise_css(css):
     return re.sub(r'\\(.)', r'\1', css, flags=re.S)
 
 
+REFUSED_AT_RULES = ('media', 'supports', 'container', 'layer', 'scope', 'page')
+
+
 def css_problems(css):
+    """Why report.css is refused. Refused constructs: markup that ends the stylesheet (</ or <!--); @import; every url() (data: too,
+    so a brand stylesheet can never add an image or a font: those come through brand.json); image-set(), src(), @namespace,
+    expression(), javascript:, behavior:, -moz-binding; and the conditional or print-specific at-rules @media, @supports,
+    @container, @layer, @scope and @page (print behaviour belongs to the exporter, and a rule that applies only in print could hide
+    screenshots from the PDF while the HTML looks fine). Comments are stripped and CSS escapes decoded first."""
     out = []
     n = normalise_css(css)
     if '</' in css or '</' in n or '<!--' in css: out.append('contains markup (</style> would end the stylesheet)')
     if re.search(r'@import', n, re.I): out.append('uses @import')
-    for m in re.finditer(r'url\s*\(\s*([\'"]?)(.*?)\1\s*\)', n, re.I | re.S):
-        if not re.match(r'\s*data:', m.group(2), re.I): out.append(f'url() that is not a data: URI ({m.group(2)[:40]!r})')
-    if re.search(r'url\s*\((?![^)]*\))', n, re.I): out.append('has an unterminated url(')
+    if re.search(r'url\s*\(', n, re.I): out.append('uses url(): not allowed (not even a data: URI); fonts and the logo come through brand.json')
     if re.search(r'(?<![\w-])(?:-webkit-)?image-set\s*\(|(?<![\w-])src\s*\(|@namespace|expression\s*\(|javascript\s*:|behavior\s*:|-moz-binding', n, re.I):
         out.append('uses image-set(), src(), @namespace, expression() or another construct that can load or run something')
+    for rule in REFUSED_AT_RULES:
+        if re.search(r'@' + rule + r'(?![\w-])', n, re.I):
+            out.append(f'uses @{rule}: conditional and print-specific rules are not allowed (print layout belongs to the exporter)')
     return out
 
 
@@ -132,14 +172,14 @@ def check_brand(directory):
         p = safe_file(root, raw['logo'], 'logo', res)
         if p:
             ext = p.suffix.lower()
-            data = p.read_bytes()
+            data = read_limited(p, MAX_LOGO, 'logo', res) if ext in LOGO_EXT else None
             if ext not in LOGO_EXT: res.problem('logo', f'must be one of {", ".join(LOGO_EXT)}')
-            elif len(data) > MAX_LOGO: res.problem('logo', f'is larger than {MAX_LOGO // 1024} KB')
+            elif data is None: pass
             elif ext == '.svg':
-                text = data.decode('utf-8', 'replace')
-                if '<svg' not in text.lower(): res.problem('logo', 'is not an SVG document (no <svg element)')
-                elif re.search(r'<!ENTITY', text, re.I): res.problem('logo', 'SVG declares entities, which are not allowed')
+                why = svg_error(data)
+                if why: res.problem('logo', why)
                 else:
+                    text = data.decode('utf-8')
                     brand['logo'] = {'mime': 'image/svg+xml', 'data': data}
                     if re.search(r'<script|\bon\w+\s*=|(?:href|src)\s*=\s*["\']?\s*(?:https?:|//)', text, re.I):
                         res.notes.append('logo SVG contains script, event handlers or external references; they are inert because the logo is embedded as an image, but remove them')
@@ -164,8 +204,8 @@ def check_brand(directory):
                 if not p: continue
                 ext = p.suffix.lower()
                 if ext not in FONT_SIGNATURES: res.problem(where + '.file', 'must be .woff2, .woff, .ttf or .otf'); continue
-                data = p.read_bytes()
-                if len(data) > MAX_FONT: res.problem(where + '.file', f'is larger than {MAX_FONT // 1024 // 1024} MB'); continue
+                data = read_limited(p, MAX_FONT, where + '.file', res)
+                if data is None: continue
                 if not data.startswith(FONT_SIGNATURES[ext]): res.problem(where + '.file', f'does not have a {ext[1:]} font signature'); continue
                 brand['fonts'].append({'role': role, 'family': e['family'], 'ext': ext, 'data': data})
 
@@ -189,9 +229,10 @@ def check_brand(directory):
         if not (root / name).exists() and not (root / name).is_symlink(): continue
         p = safe_file(root, name, name, res)
         if not p: continue
-        if p.stat().st_size > MAX_TEXT_FILE: res.problem(name, f'is larger than {MAX_TEXT_FILE // 1024} KB'); continue
+        data = read_limited(p, MAX_TEXT_FILE, name, res)
+        if data is None: continue
         try:
-            text = p.read_text(encoding='utf-8')
+            text = data.decode('utf-8')
         except UnicodeDecodeError:
             res.problem(name, 'is not UTF-8 text'); continue
         if name == 'report.css':

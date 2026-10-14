@@ -195,7 +195,7 @@ def brand_stylesheet(brand):
     if 'body' in fams: css += f'body {{ font-family: "{css_string(fams["body"])}", {FONT_STACK}; }}\n'
     if 'heading' in fams: css += f'h1, h2, h3, h4, .cover .cover-title {{ font-family: "{css_string(fams["heading"])}", {FONT_STACK}; }}\n'
     if brand['css']: css += brand['css'] + '\n'
-    return css, bool(brand['fonts']) or bool(brand['css'] and re.search(r'@font-face', brand['css'], re.I))
+    return css, bool(brand['fonts'])
 
 
 def cover_html(brand, title, date):
@@ -339,9 +339,28 @@ def print_pdf(html_path, pdf_path):
     return (True, '') if fresh() else (False, f'Chrome exited with status {rc} and wrote no PDF')
 
 
-PROBE_SCRIPT = ("<script>window.addEventListener('load',function(){var bad=[];Array.prototype.forEach.call(document.querySelectorAll('figure img'),"
-                "function(i,n){if(!(i.complete&&i.naturalWidth>0&&i.naturalHeight>0))bad.push(n)});"
-                "document.title='DECODE:'+bad.join(',')+':END'})</script>")
+PROBE_JS = r"""
+function shown(i){
+  if(!i.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})) return false;
+  var r=i.getBoundingClientRect(), minW=Math.min(40,i.naturalWidth), minH=Math.min(40,i.naturalHeight);
+  if(r.width<minW||r.height<minH) return false;
+  if(r.right<=0||r.bottom+window.scrollY<=0||r.left>=document.documentElement.scrollWidth) return false;
+  for(var e=i;e&&e!==document.documentElement;e=e.parentElement){
+    var c=window.getComputedStyle(e);
+    if(c.clipPath!=='none'||c.filter!=='none'||c.transform!=='none'||(c.maskImage&&c.maskImage!=='none')||c.contentVisibility==='hidden') return false;
+    if(e!==i&&(c.overflowX!=='visible'||c.overflowY!=='visible')){
+      var q=e.getBoundingClientRect();
+      if(Math.min(r.right,q.right)-Math.max(r.left,q.left)<minW||Math.min(r.bottom,q.bottom)-Math.max(r.top,q.top)<minH) return false;
+    }
+  }
+  return true;
+}
+window.addEventListener('load',function(){var load=[],hid=[];
+  Array.prototype.forEach.call(document.querySelectorAll('figure img'),function(i,n){
+    if(!(i.complete&&i.naturalWidth>0&&i.naturalHeight>0)) load.push(n); else if(!shown(i)) hid.push(n);});
+  document.title='DECODE:'+load.join(',')+':SHOWN:'+hid.join(',')+':END';});
+"""
+PROBE_SCRIPT = '<script>' + PROBE_JS + '</script>'
 CSP_META = re.compile(r'(<meta http-equiv="Content-Security-Policy" content=")[^"]*(")')
 
 
@@ -357,29 +376,38 @@ def report_figures(page):
     return out
 
 
-def probe_decode(page):
-    """Ask Chrome to load every image of the page (a throwaway copy of it with one inline script; the deliverable has none).
-    Returns (ok, bad_figure_indexes, error). Chrome draws a broken-image icon for an image it cannot load, and a PDF then still
-    holds an image object, so counting PDF image objects alone cannot prove a screenshot loaded: this probe can."""
-    probe = CSP_META.sub(r"\g<1>default-src 'none'; img-src data:; font-src data:; script-src 'unsafe-inline'\g<2>", page).replace('</body>', PROBE_SCRIPT + '</body>')
+def probe_details(page):
+    """Ask Chrome about every report screenshot, on the real page with all its styling (a throwaway copy with one inline script;
+    the deliverable has none). Returns (ok, not_loaded, not_shown, error): figure indexes Chrome could not load, and figures that
+    loaded but are hidden, clipped away or too small to see (a size of at least 40 x 40 CSS px, or the image's own size if smaller).
+    Chrome draws a broken-image icon for an image it cannot load, and a PDF then still holds an image object, so counting PDF image
+    objects alone cannot prove a screenshot loaded or is visible: this probe can."""
+    probe = CSP_META.sub(r"\g<1>default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'\g<2>", page).replace('</body>', PROBE_SCRIPT + '</body>')
     d = tempfile.mkdtemp(prefix='qa-export-probe-')
     try:
         src, dump = Path(d) / 'probe.html', Path(d) / 'dom.txt'
         src.write_text(probe, encoding='utf-8')
-        pat = re.compile(rb'<title>DECODE:([0-9,]*):END</title>')
+        pat = re.compile(rb'<title>DECODE:([0-9,]*):SHOWN:([0-9,]*):END</title>')
 
         def ready():
             return dump.is_file() and bool(pat.search(dump.read_bytes()))
 
         try:
-            run_chrome(['--dump-dom', '--virtual-time-budget=3000'], src.resolve().as_uri(), ready, stdout_to=str(dump), limit=90)
+            run_chrome(['--dump-dom', '--window-size=1000,800', '--virtual-time-budget=3000'], src.resolve().as_uri(), ready, stdout_to=str(dump), limit=90)
         except OSError as e:
-            return False, [], f'Chrome did not run ({type(e).__name__})'
+            return False, [], [], f'Chrome did not run ({type(e).__name__})'
         m = pat.search(dump.read_bytes()) if dump.is_file() else None
-        if not m: return False, [], 'the Chrome image-load probe did not report'
-        return True, [int(x) for x in m.group(1).split(b',') if x], ''
+        if not m: return False, [], [], 'the Chrome image-load probe did not report'
+        ints = lambda g: [int(x) for x in g.split(b',') if x]
+        return True, ints(m.group(1)), ints(m.group(2)), ''
     finally:
         shutil.rmtree(d, ignore_errors=True)
+
+
+def probe_decode(page):
+    """(ok, bad_figure_indexes, error): every figure that did not load or is not visibly shown, see probe_details."""
+    ok, load, hidden, err = probe_details(page)
+    return ok, sorted(set(load) | set(hidden)), err
 
 
 def main(argv=None):
@@ -460,14 +488,17 @@ def main(argv=None):
             parsed = report_figures(page)   # report screenshots only: the cover logo is not a figure
             figures = [alt for _, alt in parsed]
             figures_src = [src for src, _ in parsed]
-            ok, bad, err = probe_decode(page)
+            ok, bad_load, bad_hidden, err = probe_details(page)
             if not ok:
                 print(f'PDF export stopped: {err}', file=sys.stderr); return 1
+            bad = sorted(set(bad_load) | set(bad_hidden))
             if bad:
-                names = '; '.join(f'image {k + 1} ("{figures[k] if k < len(figures) else "?"}")' for k in bad)
-                print(f'{len(bad)} embedded image(s) cannot be loaded by Chrome: {names}.')
+                name = lambda k: f'image {k + 1} ("{figures[k] if k < len(figures) else "?"}")'
+                if bad_load: print(f'{len(bad_load)} embedded image(s) cannot be loaded by Chrome: {"; ".join(map(name, bad_load))}.')
+                if bad_hidden: print(f'{len(bad_hidden)} embedded image(s) loaded but are not visibly shown in the page (hidden, clipped, transparent or too small; '
+                                     f'check report.css): {"; ".join(map(name, bad_hidden))}.')
                 if not a.allow_missing:
-                    print('Not exporting a PDF. Replace the files, or pass --allow-missing to export without them counted.')
+                    print('Not exporting a PDF. Replace the files or fix the styling, or pass --allow-missing to export without them counted.')
                     return 1
                 # Count failures per distinct image, as rend.inlined does: the same file embedded twice is one image.
                 failed = {figures_src[k] for k in bad if k < len(figures_src)}
@@ -475,9 +506,10 @@ def main(argv=None):
             ok, err = print_pdf(html_path, a.pdf)
             if not ok:
                 print(f'PDF export failed: {err}', file=sys.stderr); return 1
-            ok, msg, found = verify_pdf(a.pdf, distinct)
+            logo_raster = 1 if brand and brand['logo'] and brand['logo']['mime'] != 'image/svg+xml' and hashlib.sha1(brand['logo']['data']).hexdigest() not in rend.inlined else 0
+            ok, msg, found = verify_pdf(a.pdf, distinct + logo_raster)   # screenshots plus the brand's raster logo (an SVG logo may not become an image object)
             if not ok:
-                print(msg); print(f'expected at least {distinct} image objects for {distinct} distinct embedded images, found {found}. The PDF was kept at {a.pdf}.')
+                print(msg); print(f'expected at least {distinct + logo_raster} image objects ({distinct} distinct embedded screenshots + {logo_raster} brand logo), found {found}. The PDF was kept at {a.pdf}.')
                 return 1
             pages = count_pdf(Path(a.pdf).read_bytes())[1]
             print(f'PDF written: {a.pdf} ({pages} pages, {found} image objects found, {distinct} images verified)')
