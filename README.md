@@ -114,8 +114,33 @@ AGENTS.md        what an AI agent should do when asked to install or change this
 - [How a run works](docs/how-a-run-works.md)
 - [The check scripts](docs/scripts.md)
 - [Branding your reports](docs/branding.md)
+- [Frequently asked questions](docs/faq.md)
 - [Responsible use](docs/responsible-use.md)
 - [Maintaining and releasing](docs/maintaining.md)
+
+## FAQ
+
+**How many tokens does it use?** In our runs, a light QA of one to three flows takes 15-30
+minutes and about 130,000 fresh tokens on the executor; a deep site audit takes 2-6 hours and
+about 1.3 million. Most usage is cached context, which costs far less.
+[The full figures](docs/faq.md#how-many-tokens-does-a-run-use).
+
+**Do I need a Mac mini?** No. Only the dedicated QA Mac edition needs a second machine, and any
+Mac that runs the ChatGPT desktop app will do. The local edition runs on your own computer.
+
+**Does it work on Linux or Windows?** Linux, yes, except the dedicated QA Mac worker. Windows is
+not tested.
+
+**Does it work with only Claude Code, or only Codex?** Yes, either can be the QA lead. The
+dedicated QA Mac worker uses the ChatGPT app, so it needs a ChatGPT account.
+
+**Do I need an API key?** No. A normal subscription to your coding agent is enough, and the
+check scripts use no AI.
+
+**Can it break the site I test?** It is built not to: it never submits, pays, sends or
+deletes, and stops at payment forms and CAPTCHAs. Test only sites you own or may test.
+
+More in the [FAQ](docs/faq.md).
 
 ## Contributing
 
