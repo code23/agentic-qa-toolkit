@@ -8,7 +8,7 @@ A brand pack is a folder holding:
   logo.svg | logo.png | logo.webp | logo.jpg   optional, named in brand.json
   fonts/*.woff2 | .woff | .ttf | .otf          optional, named in brand.json
   cover.md     optional cover page template: {title} {date} {brand} {prepared_by} {contact} {confidentiality}
-  report.css   optional extra styling (no @import, no url(), no @media/@supports/@container/@layer/@scope/@page)
+  report.css   NOT supported: a pack containing one is refused (brand styling comes from brand.json colours and fonts only)
   brand.md     optional, for the agent only (voice and structure); ignored here and by the exporter
 
 brand.json:
@@ -109,35 +109,6 @@ def svg_error(data):
     return None
 
 
-def normalise_css(css):
-    """Comments removed and CSS escapes decoded, so `u\\72l(` or `@\\69mport` cannot hide from the network rule."""
-    css = re.sub(r'/\*.*?\*/', ' ', css, flags=re.S)
-    css = re.sub(r'\\([0-9a-fA-F]{1,6})\s?', lambda m: chr(min(int(m.group(1), 16), 0x10ffff)) if int(m.group(1), 16) else '', css)
-    return re.sub(r'\\(.)', r'\1', css, flags=re.S)
-
-
-REFUSED_AT_RULES = ('media', 'supports', 'container', 'layer', 'scope', 'page')
-
-
-def css_problems(css):
-    """Why report.css is refused. Refused constructs: markup that ends the stylesheet (</ or <!--); @import; every url() (data: too,
-    so a brand stylesheet can never add an image or a font: those come through brand.json); image-set(), src(), @namespace,
-    expression(), javascript:, behavior:, -moz-binding; and the conditional or print-specific at-rules @media, @supports,
-    @container, @layer, @scope and @page (print behaviour belongs to the exporter, and a rule that applies only in print could hide
-    screenshots from the PDF while the HTML looks fine). Comments are stripped and CSS escapes decoded first."""
-    out = []
-    n = normalise_css(css)
-    if '</' in css or '</' in n or '<!--' in css: out.append('contains markup (</style> would end the stylesheet)')
-    if re.search(r'@import', n, re.I): out.append('uses @import')
-    if re.search(r'url\s*\(', n, re.I): out.append('uses url(): not allowed (not even a data: URI); fonts and the logo come through brand.json')
-    if re.search(r'(?<![\w-])(?:-webkit-)?image-set\s*\(|(?<![\w-])src\s*\(|@namespace|expression\s*\(|javascript\s*:|behavior\s*:|-moz-binding', n, re.I):
-        out.append('uses image-set(), src(), @namespace, expression() or another construct that can load or run something')
-    for rule in REFUSED_AT_RULES:
-        if re.search(r'@' + rule + r'(?![\w-])', n, re.I):
-            out.append(f'uses @{rule}: conditional and print-specific rules are not allowed (print layout belongs to the exporter)')
-    return out
-
-
 def check_brand(directory):
     res = Result()
     root = Path(directory)
@@ -150,7 +121,7 @@ def check_brand(directory):
         res.problem('brand.json', f'cannot be read as JSON ({type(e).__name__}: {str(e)[:120]})'); return res
     if not isinstance(raw, dict): res.problem('brand.json', 'must hold a JSON object'); return res
     for k in sorted(set(raw) - TOP_KEYS): res.problem('brand.json', f'unknown key {k!r} (allowed: {", ".join(sorted(TOP_KEYS))})')
-    brand = {'name': None, 'colours': {}, 'logo': None, 'fonts': [], 'cover': {}, 'footer': None, 'cover_md': None, 'css': None}
+    brand = {'name': None, 'colours': {}, 'logo': None, 'fonts': [], 'cover': {}, 'footer': None, 'cover_md': None}
 
     if 'name' not in raw: res.problem('name', 'is required')
     else:
@@ -225,23 +196,19 @@ def check_brand(directory):
         if why: res.problem('footer', why)
         else: brand['footer'] = raw['footer'].strip()
 
-    for name, key in (('cover.md', 'cover_md'), ('report.css', 'css')):
-        if not (root / name).exists() and not (root / name).is_symlink(): continue
-        p = safe_file(root, name, name, res)
-        if not p: continue
-        data = read_limited(p, MAX_TEXT_FILE, name, res)
-        if data is None: continue
-        try:
-            text = data.decode('utf-8')
-        except UnicodeDecodeError:
-            res.problem(name, 'is not UTF-8 text'); continue
-        if name == 'report.css':
-            bad = css_problems(text)
-            for b in bad: res.problem(name, b)
-            if not bad: brand[key] = text
-        else:
-            if report_check.parsed_images(text): res.problem(name, 'must not contain images (the logo is placed on the cover for you)'); continue
-            brand[key] = text
+    if (root / 'report.css').exists() or (root / 'report.css').is_symlink():
+        res.problem('report.css', 'report.css is not supported: brand styling comes from brand.json colours and fonts only (the exporter never reads it)')
+    if (root / 'cover.md').exists() or (root / 'cover.md').is_symlink():
+        p = safe_file(root, 'cover.md', 'cover.md', res)
+        data = read_limited(p, MAX_TEXT_FILE, 'cover.md', res) if p else None
+        if data is not None:
+            try:
+                text = data.decode('utf-8')
+            except UnicodeDecodeError:
+                res.problem('cover.md', 'is not UTF-8 text')
+            else:
+                if report_check.parsed_images(text): res.problem('cover.md', 'must not contain images (the logo is placed on the cover for you)')
+                else: brand['cover_md'] = text
     if not res.problems: res.brand = brand
     return res
 

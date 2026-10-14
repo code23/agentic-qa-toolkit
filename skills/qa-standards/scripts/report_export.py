@@ -24,7 +24,7 @@ object, for a file it cannot load. An image Chrome cannot load stops the PDF unl
 
 Brand pack (optional): --brand DIR, else the QA_BRAND environment variable; --no-brand ignores both. See brand_check.py for the folder
 layout and brand.json schema, which is validated first (a bad pack refuses the export). A brand adds a cover page (logo, the
-report's first H1, brand name, date, cover fields, or cover.md), colours and fonts from the pack, report.css, and a footer on every
+report's first H1, brand name, date, cover fields, or cover.md), colours and fonts from the pack, and a footer on every
 PDF page. Brand files are inlined as data: URIs; the logo is an <img>, so an SVG logo cannot run script or load anything. Without a
 brand the output is exactly what it is without this feature. --date YYYY-MM-DD sets the cover date (default: today).
 
@@ -178,7 +178,8 @@ BRAND_DEFAULTS = {'accent': '#1b1f24', 'ink': '#1b1f24', 'muted': '#4a5056', 'pa
 
 
 def brand_stylesheet(brand):
-    """(css, needs_font_src) for a validated brand: colour variables, font-face rules, cover/footer styling, then report.css last."""
+    """(css, needs_font_src) for a validated brand: colour variables, font-face rules and cover/footer styling, all generated from validated
+    brand.json values. The only stylesheet in an export is ours plus this."""
     colours = {**BRAND_DEFAULTS, **brand['colours']}
     css = BRAND_CSS % colours
     seen = {}
@@ -194,7 +195,6 @@ def brand_stylesheet(brand):
         css += f'@page {{ @bottom-center {{ content: "{css_string(brand["footer"])}"; font-family: {stack}; font-size: 9px; color: {colours["muted"]}; }} }}\n'
     if 'body' in fams: css += f'body {{ font-family: "{css_string(fams["body"])}", {FONT_STACK}; }}\n'
     if 'heading' in fams: css += f'h1, h2, h3, h4, .cover .cover-title {{ font-family: "{css_string(fams["heading"])}", {FONT_STACK}; }}\n'
-    if brand['css']: css += brand['css'] + '\n'
     return css, bool(brand['fonts'])
 
 
@@ -225,7 +225,7 @@ def first_h1(report_text):
 def build_html(report_text, images, brand=None, date=None):
     """(html_text, renderer). Raw HTML in the source is escaped; only allow-listed elements survive. The renderer reports how many
     figures were inlined (renderer.figures), how many were replaced by unavailable boxes and the distinct inlined images.
-    With a validated brand (brand_check.check_brand(...).brand) the page gets a cover, the brand's colours, fonts and report.css,
+    With a validated brand (brand_check.check_brand(...).brand) the page gets a cover, the brand's colours and fonts,
     and a footer; without one the output is unchanged."""
     r = Renderer(images)
     body = r.render(parse_html(report_check.render_markdown(report_text)))
@@ -376,6 +376,23 @@ def report_figures(page):
     return out
 
 
+def measure_logo_images(brand, title, date):
+    """How many image objects the brand's logo adds to a PDF, measured: the cover alone (same brand stylesheet, no report body, no
+    screenshots) is printed to a temporary PDF and its image objects are counted with the same counter (soft masks excluded). A PNG
+    logo adds one, a pure-vector SVG none, an SVG that embeds a bitmap one or more. The temporary files are removed.
+    Returns None if the cover cannot be printed: the caller must then stop, because guessing 0 would let the logo stand in for a
+    missing screenshot."""
+    page, _ = build_html(f'# {title}\n', {}, brand, date)
+    d = tempfile.mkdtemp(prefix='qa-export-logo-')
+    try:
+        src, pdf = Path(d) / 'cover.html', Path(d) / 'cover.pdf'
+        src.write_text(page, encoding='utf-8')
+        ok, _ = print_pdf(src, pdf)
+        return count_pdf(pdf.read_bytes())[0] if ok and pdf.is_file() else None
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def probe_details(page):
     """Ask Chrome about every report screenshot, on the real page with all its styling (a throwaway copy with one inline script;
     the deliverable has none). Returns (ok, not_loaded, not_shown, error): figure indexes Chrome could not load, and figures that
@@ -495,8 +512,7 @@ def main(argv=None):
             if bad:
                 name = lambda k: f'image {k + 1} ("{figures[k] if k < len(figures) else "?"}")'
                 if bad_load: print(f'{len(bad_load)} embedded image(s) cannot be loaded by Chrome: {"; ".join(map(name, bad_load))}.')
-                if bad_hidden: print(f'{len(bad_hidden)} embedded image(s) loaded but are not visibly shown in the page (hidden, clipped, transparent or too small; '
-                                     f'check report.css): {"; ".join(map(name, bad_hidden))}.')
+                if bad_hidden: print(f'{len(bad_hidden)} embedded image(s) loaded but are not visibly shown in the page (hidden, clipped, transparent or too small): {"; ".join(map(name, bad_hidden))}.')
                 if not a.allow_missing:
                     print('Not exporting a PDF. Replace the files or fix the styling, or pass --allow-missing to export without them counted.')
                     return 1
@@ -506,10 +522,14 @@ def main(argv=None):
             ok, err = print_pdf(html_path, a.pdf)
             if not ok:
                 print(f'PDF export failed: {err}', file=sys.stderr); return 1
-            logo_raster = 1 if brand and brand['logo'] and brand['logo']['mime'] != 'image/svg+xml' and hashlib.sha1(brand['logo']['data']).hexdigest() not in rend.inlined else 0
-            ok, msg, found = verify_pdf(a.pdf, distinct + logo_raster)   # screenshots plus the brand's raster logo (an SVG logo may not become an image object)
+            logo_images = measure_logo_images(brand, first_h1(report.read_text(encoding="utf-8")), a.date) if brand and brand['logo'] and hashlib.sha1(brand['logo']['data']).hexdigest() not in rend.inlined else 0
+            if logo_images is None:
+                print('PDF export stopped: could not print the brand cover on its own to measure what the logo adds, so the screenshot '
+                      f'count cannot be verified. The PDF was kept at {a.pdf}.', file=sys.stderr)
+                return 1
+            ok, msg, found = verify_pdf(a.pdf, distinct + logo_images)   # screenshots plus what the logo itself adds to a PDF (measured, not guessed)
             if not ok:
-                print(msg); print(f'expected at least {distinct + logo_raster} image objects ({distinct} distinct embedded screenshots + {logo_raster} brand logo), found {found}. The PDF was kept at {a.pdf}.')
+                print(msg); print(f'expected at least {distinct + logo_images} image objects ({distinct} distinct embedded screenshots + {logo_images} from the brand logo), found {found}. The PDF was kept at {a.pdf}.')
                 return 1
             pages = count_pdf(Path(a.pdf).read_bytes())[1]
             print(f'PDF written: {a.pdf} ({pages} pages, {found} image objects found, {distinct} images verified)')

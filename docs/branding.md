@@ -15,7 +15,6 @@ A complete example ships with the qa-standards skill in `brand-example/`.
 | logo file | no | exporter | SVG, PNG, WebP or JPEG, named in `brand.json` |
 | `fonts/` | no | exporter | WOFF2, WOFF, TTF or OTF files, named in `brand.json` |
 | `cover.md` | no | exporter | Cover page layout with placeholders; a standard cover is used without it |
-| `report.css` | no | exporter | Extra styling for the HTML and PDF export |
 | `brand.md` | no | agent | How reports under this brand read: voice, structure, words to avoid |
 
 `brand.json`:
@@ -73,12 +72,11 @@ Use `--brand /path/to/other-brand` to export one report under a different brand,
 - **The safety rules.** Every brand file must sit inside the brand folder and is inlined
   into the export, which still loads nothing from the network. An SVG logo is shown as an
   image, so any script or link inside it does nothing.
-- **What `report.css` may contain.** Ordinary styling: colours, spacing, type, borders.
-  It is refused if it contains any `url()` (including `data:`), `@import`, `@media`,
-  `@supports`, `@container`, `@layer`, `@scope`, `@page`, `@namespace`, `image-set()`,
-  `src()`, `expression()` or markup such as `</`. Fonts and the logo come through
-  `brand.json`; print behaviour comes from the exporter.
-- **The screenshot checks.** The logo is not counted as a screenshot. Before printing, the
-  exporter loads the page with your styling and checks that every screenshot loads and is
-  actually visible at a readable size. A report fails if any screenshot is missing, will not
-  load or has been hidden.
+- **The layout.** A brand sets colours, fonts, the logo, the cover and the footer through
+  `brand.json` and `cover.md`. It cannot add its own stylesheet: the screenshot checks only
+  stay trustworthy if nothing a brand supplies can change how a screenshot is shown. A
+  `report.css` in a brand folder is reported as a problem so nobody thinks it is applied.
+- **The screenshot checks.** The logo is not counted as a screenshot: the exporter prints
+  the cover on its own first to measure what the logo adds to a PDF. Before printing the
+  report, it checks that every screenshot loads and is visible at a readable size. A report
+  fails if any screenshot is missing or will not load.

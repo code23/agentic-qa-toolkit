@@ -1,8 +1,8 @@
 """Brand packs: brand_check.py validation and the exporter's cover, colours, fonts, footer and safety rules."""
-import json
-import os
 import contextlib
 import io
+import json
+import os
 import re
 import shutil
 import subprocess
@@ -257,9 +257,9 @@ class Unreadable(BrandCase):
 
     def test_files_that_exist_but_cannot_be_read_are_problems_not_crashes(self):
         for rel, key in (("logo.png", "logo"), ("fonts/serif.woff2", "fonts.heading.file"), ("fonts/sans.woff2", "fonts.body.file"),
-                         ("report.css", "report.css"), ("cover.md", "cover.md"), ("brand.json", "brand.json")):
+                         ("cover.md", "cover.md"), ("brand.json", "brand.json")):
             with self.subTest(rel):
-                self.make(None, **{"report.css": "a { color: red }", "cover.md": "# {title}\n"})
+                self.make(None, **{"cover.md": "# {title}\n"})
                 self.lock(rel)
                 probs = BC.check_brand(self.brand).problems
                 self.assertEqual(len(probs), 1, probs)
@@ -291,58 +291,52 @@ class Unreadable(BrandCase):
         self.assertTrue(all(p.startswith("fonts.") for p in probs))
 
 
-class Css(BrandCase):
-    def css(self, text):
-        return self.problems(None, **{"report.css": text})
-
-    def test_plain_css_is_fine_and_comments_are_ignored(self):
-        self.assertEqual(self.css("h2 { border-bottom: 2px solid var(--accent); } /* @import url(http://x) and @media print in a comment are fine */"), [])
-        self.assertEqual(self.css("figure img { border-radius: 4px; } .cover { text-align: left; } th { background: #eee; }"), [])
-
-    def test_every_url_is_refused_data_uris_included(self):
-        for css in ('.x { background: url("data:image/png;base64,AAAA"); }', "@font-face { font-family: Z; src: url(data:font/woff2;base64,AAAA); }",
-                    ".x { background: URL( data:image/png;base64,AAAA ); }", ".x { background: u\\72l(data:image/png;base64,AAAA); }"):
-            with self.subTest(css[:30]):
-                self.assertTrue(any("url()" in p for p in self.css(css)), self.css(css))
-
-    def test_conditional_and_print_specific_at_rules_are_refused(self):
-        for rule in ("@media print { figure { display: none; } }", "@media screen { a { color: red } }", "@MEDIA print { x { y: z } }", "@supports (display: grid) { a { b: c } }",
-                     "@container (min-width: 10px) { a { b: c } }", "@layer base { a { b: c } }", "@scope (.x) { a { b: c } }", "@page { margin: 0 }",
-                     "@page :first { margin: 0 }", "@m\\65 dia print { figure { display: none } }", "@\\6d edia print { x { y: z } }", "@page { @bottom-center { content: 'x' } }"):
-            with self.subTest(rule):
-                probs = self.css(rule)
-                self.assertTrue(any("conditional and print-specific rules are not allowed" in p for p in probs), probs)
-
-    def test_at_rules_that_are_still_allowed(self):
-        self.assertEqual(self.css("@keyframes fade { from { opacity: 1 } to { opacity: .9 } } a { animation: none; }"), [])
-
-
-    def test_network_references_are_refused(self):
-        bad = {
-            "import": '@import "other.css";', "import url": "@import url(https://example.com/a.css);",
-            "http url": "body { background: url(http://example.com/a.png); }", "relative url": "body { background: url(a.png); }",
-            "quoted url": 'body { background: url("//example.com/a.png"); }', "spaced url": "body { background: url( 'https://e.com/a.png' ); }",
-            "escaped url": "body { background: u\\72l(https://example.com/a.png); }", "escaped import": "@\\69mport 'a.css';",
-            "hex-escaped with space": "body { background: \\75 rl(http://e.com/a.png); }", "uppercase": "BODY { BACKGROUND: URL(HTTP://E.COM/A.PNG); }",
-            "image-set": 'body { background: image-set("https://e.com/a.png" 1x); }', "webkit image-set": 'body { background: -webkit-image-set("a.png" 1x); }',
-            "src()": 'body { background: src("a.png"); }', "font url": "@font-face { font-family: Z; src: url(https://e.com/z.woff2); }",
-            "style end": "</style><script>alert(1)</script>", "namespace": "@namespace url(http://e.com);", "expression": "a { width: expression(alert(1)); }",
-            "javascript": "a { background: javascript:alert(1); }",
-        }
-        for label, css in bad.items():
+class NoReportCss(BrandCase):
+    def test_a_report_css_in_the_pack_is_a_problem_whatever_it_holds(self):
+        for label, content in (("harmless", "h2 { color: red }"), ("empty", ""), ("print rule", "@media print { figure { display: none } }"), ("binary", b"\xff\xfe\x00")):
             with self.subTest(label):
-                self.assertTrue(self.css(css), f"{label} should be refused")
+                probs = self.problems(None, **{"report.css": content})
+                self.assertEqual(len(probs), 1, probs)
+                self.assertEqual(probs[0], "report.css: report.css is not supported: brand styling comes from brand.json colours and fonts only (the exporter never reads it)")
 
-    def test_other_text_file_rules(self):
-        self.assertOneProblem("report.css: is not UTF-8", None, **{"report.css": b"\xff\xfe"})
-        self.assertOneProblem("larger than", None, **{"report.css": "a{}" + " " * (200 * 1024)})
-        self.assertOneProblem("must not contain images", None, **{"cover.md": "![Logo](logo.png)\n"})
-        self.assertEqual(self.problems(None, **{"cover.md": "# {title}\n\nPrepared by {prepared_by}\n"}), [])
-
-    def test_symlinked_css_is_refused(self):
+    def test_an_unreadable_or_symlinked_report_css_gives_the_same_single_problem(self):
         self.make()
         real = self.root / "real.css"; real.write_text("a{}", encoding="utf-8")
         self.symlink(real, "report.css")
+        probs = BC.check_brand(self.brand).problems
+        self.assertEqual(len(probs), 1, probs)
+        self.assertIn("report.css is not supported", probs[0])
+
+    def test_the_exporter_never_reads_a_css_key_even_if_one_is_smuggled_in(self):
+        self.make()
+        brand = BC.check_brand(self.brand).brand
+        brand["css"] = "figure { display: none; } /* SMUGGLED */"
+        css, _ = EX.brand_stylesheet(brand)
+        self.assertNotIn("SMUGGLED", css)
+        page, _ = EX.build_html("# R\n", {}, brand, "2026-10-14")
+        self.assertNotIn("SMUGGLED", page)
+
+    def test_the_only_stylesheet_is_ours_plus_values_generated_from_brand_json(self):
+        self.make()
+        brand = BC.check_brand(self.brand).brand
+        page, _ = EX.build_html("# R\n", {}, brand, "2026-10-14")
+        style = page[page.index("<style>") + 7:page.index("</style>")]
+        generated, _ = EX.brand_stylesheet(brand)
+        self.assertEqual(style, EX.CSS + generated)
+        self.assertEqual(page.count("<style>"), 1)
+
+
+class CoverMdRules(BrandCase):
+    def test_other_text_file_rules(self):
+        self.assertOneProblem("cover.md: is not UTF-8", None, **{"cover.md": b"\xff\xfe"})
+        self.assertOneProblem("larger than", None, **{"cover.md": "a" * (200 * 1024 + 1)})
+        self.assertOneProblem("must not contain images", None, **{"cover.md": "![Logo](logo.png)\n"})
+        self.assertEqual(self.problems(None, **{"cover.md": "# {title}\n\nPrepared by {prepared_by}\n"}), [])
+
+    def test_symlinked_cover_md_is_refused(self):
+        self.make()
+        real = self.root / "real.md"; real.write_text("# x", encoding="utf-8")
+        self.symlink(real, "cover.md")
         self.assertTrue(any("symlink" in p for p in BC.check_brand(self.brand).problems))
 
 
@@ -356,12 +350,12 @@ class Cli(BrandCase):
         self.assertEqual((r.returncode, r.stdout), (0, "brand pack Example Agency: 0 problems\n"))
 
     def test_every_problem_is_printed_and_exit_is_1(self):
-        self.make(self.spec(colours={"accent": "red"}, footer="<x>"), **{"report.css": "@import 'x.css';"})
+        self.make(self.spec(colours={"accent": "red"}, footer="<x>"), **{"report.css": "a { color: red }"})
         r = self.run_check(self.brand)
         self.assertEqual(r.returncode, 1)
         self.assertEqual(len(r.stdout.strip().splitlines()), 4)
         self.assertTrue(r.stdout.strip().endswith("3 problems"))
-        for part in ("colours.accent", "footer", "report.css: uses @import"):
+        for part in ("colours.accent", "footer", "report.css: report.css is not supported"):
             self.assertIn(part, r.stdout)
 
     def test_usage_errors_exit_2(self):
@@ -454,12 +448,6 @@ class HtmlWithBrand(ExportCase):
         self.assertNotRegex(re.sub(r'<a href="[^"]*"', "", page), r"(?i)https?:|(?:src|href)=.?//|@import")
         self.assertNotRegex(page, r"(?i)url\((?!data:)")
         self.assertNotRegex(page, r"(?i)<(script|link|iframe|object|embed)")
-
-    def test_report_css_comes_last(self):
-        self.make(**{"report.css": "h2 { text-transform: uppercase; }"})
-        page = self.page("--brand", self.brand)
-        style = page[page.index("<style>"):page.index("</style>")]
-        self.assertTrue(style.rstrip().endswith("h2 { text-transform: uppercase; }"))
 
     def test_user_text_cannot_break_out_of_html_or_css(self):
         spec = self.spec(name='A&B "Co" \\ <i>', footer='He said "hi" \\ ok')
@@ -591,11 +579,11 @@ class BrandSelection(ExportCase):
         self.assertEqual((r.returncode, data), (2, None))
 
     def test_a_bad_brand_refuses_the_export_and_writes_nothing(self):
-        self.make(self.spec(colours={"accent": "red"}), **{"report.css": "@import 'x.css';"})
+        self.make(self.spec(colours={"accent": "red"}), **{"report.css": "a { color: red }"})
         r, data = self.export("--brand", self.brand)
         self.assertEqual((r.returncode, data), (1, None))
         self.assertIn("brand: colours.accent", r.stdout)
-        self.assertIn("brand: report.css: uses @import", r.stdout)
+        self.assertIn("brand: report.css: report.css is not supported", r.stdout)
         self.assertIn("refusing to export: the brand pack has 2 problem(s)", r.stdout)
 
     def test_date_option(self):
@@ -620,58 +608,54 @@ class ScreenshotsStayDistinctFromBrandImages(ExportCase):
 
 @unittest.skipUnless(CHROME_OK, f"Chrome not found at {EX.CHROME}; set CHROME_PATH to run the real PDF tests")
 class HiddenScreenshots(ExportCase):
-    """A stylesheet must not be able to make the exporter accept a PDF without its screenshots."""
+    """Defence in depth: report.css is gone, so only our own stylesheet applies; the probe still has to notice a figure that is not shown,
+    whatever the cause, so these tests inject rules into the page directly."""
 
-    def test_report_css_with_print_rules_is_refused_at_validation(self):
-        self.make(None, **{"report.css": "@media print { figure { display: none } }"})
-        r, data = self.export("--brand", self.brand)
-        self.assertEqual((r.returncode, data), (1, None))
-        self.assertIn("brand: report.css: uses @media", r.stdout)
-
-    def test_the_probe_reports_each_way_of_hiding_a_figure_and_leaves_a_normal_one_alone(self):
-        hiding = ["display: none", "visibility: hidden", "opacity: 0", "width: 0; height: 0", "max-height: 0; overflow: hidden", "transform: scale(0)",
-                  "clip-path: inset(100%)", "position: absolute; left: -9999px", "filter: opacity(0)", "content-visibility: hidden"]
+    def inject(self, text, rules):
         self.make()
-        res = BC.check_brand(self.brand)
-        brand = res.brand
-        brand["css"] = "\n".join(f"figure:nth-of-type({n}) {{ {rule}; }}" for n, rule in enumerate(hiding, start=1))
-        shots = self.run_dir / "screenshots"
-        text = "\n\n".join(f"![Shot {n}](screenshots/home.png)" for n in range(1, len(hiding) + 2)) + "\n"
+        brand = BC.check_brand(self.brand).brand
         (self.run_dir / "report.md").write_text(text, encoding="utf-8")
         check = EX.report_check.check(self.run_dir / "report.md")
         imgs = {e["src"]: {"path": e["path"], "mime": e["mime"]} for e in check.embedded if e["path"]}
         page, rend = EX.build_html(text, imgs, brand, "2026-10-14")
+        return page.replace("</style>", rules + "\n</style>", 1), rend
+
+    def test_a_pack_with_report_css_that_tries_to_hide_figures_is_refused_at_validation(self):
+        self.make(None, **{"report.css": "@media print { figure { display: none } }"})
+        r, data = self.export("--brand", self.brand)
+        self.assertEqual((r.returncode, data), (1, None))
+        self.assertIn("brand: report.css: report.css is not supported", r.stdout)
+
+    def test_the_probe_reports_each_way_of_hiding_a_figure_and_leaves_a_normal_one_alone(self):
+        hiding = ["display: none", "visibility: hidden", "opacity: 0", "width: 0; height: 0", "max-height: 0; overflow: hidden", "transform: scale(0)",
+                  "clip-path: inset(100%)", "position: absolute; left: -9999px", "filter: opacity(0)", "content-visibility: hidden"]
+        text = "\n\n".join(f"![Shot {n}](screenshots/home.png)" for n in range(1, len(hiding) + 2)) + "\n"
+        page, _ = self.inject(text, "\n".join(f"figure:nth-of-type({n}) {{ {rule}; }}" for n, rule in enumerate(hiding, start=1)))
         ok, not_loaded, not_shown, err = EX.probe_details(page)
         self.assertEqual((ok, not_loaded), (True, []), err)
         self.assertEqual(not_shown, list(range(len(hiding))), "every hiding rule must be caught; the last figure (no rule) must pass")
 
-    def test_the_probe_with_the_brand_validation_bypassed_reports_the_hidden_figure_by_number(self):
-        self.make()
-        brand = BC.check_brand(self.brand).brand
-        brand["css"] = "figure { display: none; }"
-        text = "# R\n\n![Only screenshot](screenshots/home.png)\n"
-        (self.run_dir / "report.md").write_text(text, encoding="utf-8")
-        check = EX.report_check.check(self.run_dir / "report.md")
-        imgs = {e["src"]: {"path": e["path"], "mime": e["mime"]} for e in check.embedded if e["path"]}
-        page, _ = EX.build_html(text, imgs, brand, "2026-10-14")
+    def test_the_probe_reports_a_hidden_figure_by_number(self):
+        page, _ = self.inject("# R\n\n![Only screenshot](screenshots/home.png)\n", "figure { display: none; }")
         self.assertEqual(EX.probe_decode(page)[:2], (True, [0]))
 
-    def test_end_to_end_a_stylesheet_that_hides_the_only_screenshot_cannot_ship_a_logo_only_pdf(self):
+    def test_main_stops_before_printing_when_the_probe_finds_a_hidden_screenshot(self):
         (self.run_dir / "report.md").write_text("# R\n\n![Only screenshot](screenshots/home.png)\n", encoding="utf-8")
-        self.make(None, **{"report.css": "figure { display: none; }"})   # passes validation: only the probe can see this
-        self.assertEqual(BC.check_brand(self.brand).problems, [])
-        r, data = self.export("--brand", self.brand, pdf=True)
-        self.assertEqual((r.returncode, data), (1, None), r.stdout + r.stderr)
-        self.assertIn('loaded but are not visibly shown in the page', r.stdout)
-        self.assertIn('image 1 ("Only screenshot")', r.stdout)
-        self.assertIn("Not exporting a PDF", r.stdout)
+        self.make()
+        original = EX.build_html
+        patched = lambda *a, **k: (lambda r: (r[0].replace("</style>", "figure { display: none; }</style>", 1), r[1]))(original(*a, **k))
+        buf, out = io.StringIO(), self.root / "x.pdf"
+        with mock.patch.object(EX, "build_html", side_effect=patched), contextlib.redirect_stdout(buf):
+            code = EX.main([str(self.run_dir / "report.md"), "--pdf", str(out), "--brand", str(self.brand)])
+        self.assertEqual(code, 1)
+        self.assertIn("loaded but are not visibly shown in the page", buf.getvalue())
+        self.assertIn('image 1 ("Only screenshot")', buf.getvalue())
+        self.assertFalse(out.exists())
 
-    def test_a_logo_only_pdf_fails_verification_because_the_logo_is_added_to_the_target(self):
-        import tempfile as tf
-        pdf = Path(tf.mkdtemp()) / "logo-only.pdf"
-        self.addCleanup(shutil.rmtree, pdf.parent, True)
+    def test_a_logo_only_pdf_fails_verification_because_the_measured_logo_is_added_to_the_target(self):
+        pdf = self.root / "logo-only.pdf"
         pdf.write_bytes(b"%PDF-1.7\n1 0 obj\n<< /Type /XObject /Subtype /Image /Width 1 /Height 1 >>\nstream\nX\nendstream\nendobj\n%%EOF\n")
-        self.assertEqual(EX.verify_pdf(pdf, 2)[:1], (False,))   # one screenshot + the raster logo
+        self.assertEqual(EX.verify_pdf(pdf, 2)[:1], (False,))   # one screenshot + one logo image
         self.assertTrue(EX.verify_pdf(pdf, 1)[0])
 
     def test_a_logo_that_is_byte_identical_to_a_screenshot_is_not_double_counted(self):
@@ -680,16 +664,77 @@ class HiddenScreenshots(ExportCase):
         r, data = self.export("--brand", self.brand, pdf=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
-    def test_allow_missing_exports_past_a_hidden_screenshot_and_still_warns(self):
-        (self.run_dir / "report.md").write_text("# R\n\n![Only screenshot](screenshots/home.png)\n\n![Second](screenshots/contact.png)\n", encoding="utf-8")
-        self.make(None, **{"report.css": "figure:first-of-type { display: none; }"})
-        r, data = self.export("--brand", self.brand, "--allow-missing", pdf=True)
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("not visibly shown", r.stdout)
-
 
 @unittest.skipUnless(CHROME_OK, f"Chrome not found at {EX.CHROME}; set CHROME_PATH to run the real PDF tests")
 class RealPdfWithBrand(ExportCase):
+    LOGOS = {
+        "png": ("logo.png", lambda: img.png((10, 90, 54), size=48)),
+        "vector svg": ("logo.svg", lambda: b'<svg xmlns="http://www.w3.org/2000/svg" width="80" height="30"><rect width="80" height="30" fill="#0a5"/><circle cx="15" cy="15" r="8" fill="#fff"/></svg>'),
+        "svg embedding a png": ("logo.svg", lambda: (b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48" height="48"><image width="48" height="48" xlink:href="data:image/png;base64,'
+                                                      + __import__("base64").b64encode(img.png((200, 30, 90), size=48)) + b'"/></svg>')),
+    }
+
+    def single_screenshot_report(self):
+        text = "# R\n\n![Only screenshot](screenshots/home.png)\n"
+        (self.run_dir / "report.md").write_text(text, encoding="utf-8")
+        return text
+
+    def logo_brand(self, name, data):
+        self.make(self.spec(logo=name, fonts={}), **{name: data})
+        return BC.check_brand(self.brand).brand
+
+    def test_the_target_is_the_screenshots_plus_the_measured_logo_images_for_every_kind_of_logo(self):
+        measured_by = {}
+        for label, (name, make) in self.LOGOS.items():
+            with self.subTest(label):
+                text = self.single_screenshot_report()
+                brand = self.logo_brand(name, make())
+                measured = measured_by[label] = EX.measure_logo_images(brand, "R", "2026-10-14")
+                print(f"\n[logo] {label}: the cover adds {measured} image object(s) to a PDF", file=sys.stderr)
+                # the full export passes with the bound screenshots + measured logo images
+                r, data = self.export("--brand", self.brand, pdf=True)
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                found = EX.count_pdf(data)[0]
+                self.assertGreaterEqual(found, 1 + measured)
+                # a PDF that lost the screenshot is refused in every case: only the logo's images remain
+                check = EX.report_check.check(self.run_dir / "report.md")
+                imgs = {e["src"]: {"path": e["path"], "mime": e["mime"]} for e in check.embedded if e["path"]}
+                page, _ = EX.build_html(text, imgs, brand, "2026-10-14")
+                stripped = self.root / "stripped.html"
+                stripped.write_text(re.sub(r"<figure>.*?</figure>", "", page, flags=re.S), encoding="utf-8")
+                pdf = self.root / "stripped.pdf"
+                self.assertTrue(EX.print_pdf(stripped, pdf)[0])
+                ok, msg, got = EX.verify_pdf(pdf, 1 + measured)
+                self.assertFalse(ok, msg)
+                self.assertEqual(got, measured)
+        self.assertEqual(measured_by["png"], 1)
+        self.assertEqual(measured_by["vector svg"], 0)
+        self.assertGreaterEqual(measured_by["svg embedding a png"], 1)
+
+    def test_a_logo_that_cannot_be_measured_stops_the_export_and_a_brand_without_a_logo_is_not_measured(self):
+        # Failing closed: a guessed 0 would let the logo stand in for a missing screenshot.
+        brand = self.logo_brand("logo.png", img.png())
+        with mock.patch.object(EX, "print_pdf", return_value=(False, "no chrome")):
+            self.assertIsNone(EX.measure_logo_images(brand, "R", "2026-10-14"))
+        self.make()
+        err = io.StringIO()
+        with mock.patch.object(EX, "measure_logo_images", return_value=None), contextlib.redirect_stderr(err), \
+                contextlib.redirect_stdout(io.StringIO()):
+            code = EX.main([str(self.run_dir / "report.md"), "--pdf", str(self.root / "m.pdf"), "--date", "2026-10-14", "--brand", str(self.brand)])
+        self.assertEqual(code, 1)
+        self.assertIn("could not print the brand cover on its own", err.getvalue())
+        self.make({"name": "Example Agency"}, files=False)
+        with mock.patch.object(EX, "measure_logo_images") as measure:
+            r, _ = self.export("--brand", self.brand, pdf=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        measure.assert_not_called()
+
+    def test_the_measuring_leaves_no_temporary_files_behind(self):
+        before = {p.name for p in Path(tempfile.gettempdir()).glob("qa-export-logo-*")}
+        brand = self.logo_brand("logo.png", img.png())
+        EX.measure_logo_images(brand, "R", "2026-10-14")
+        self.assertEqual({p.name for p in Path(tempfile.gettempdir()).glob("qa-export-logo-*")} - before, set())
+
     def test_pdf_with_a_brand_verifies_only_the_screenshots_and_carries_the_footer_on_every_page(self):
         self.make()
         r, data = self.export("--brand", self.brand, pdf=True)

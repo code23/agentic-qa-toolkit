@@ -7,7 +7,8 @@ tells an agent to do is at least a minor version.
 ## 1.1.0 - unreleased
 
 - Brand packs: a folder outside the toolkit holding a brand's name, colours, logo, fonts,
-  cover, footer and report voice. `report_export.py` applies it (`--brand`, or the
+  cover, footer and report voice. Brands cannot add their own stylesheet, so nothing a brand
+  supplies can change how a screenshot is shown. `report_export.py` applies it (`--brand`, or the
   `QA_BRAND` environment variable), and `brand_check.py` validates one. An example ships in
   `skills/qa-standards/brand-example/`; see `docs/branding.md`.
 - qa-standards: when a brand is set, the agent follows its `brand.md` for voice and
