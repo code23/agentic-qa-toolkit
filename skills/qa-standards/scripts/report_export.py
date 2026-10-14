@@ -388,7 +388,13 @@ def measure_logo_images(brand, title, date):
         src, pdf = Path(d) / 'cover.html', Path(d) / 'cover.pdf'
         src.write_text(page, encoding='utf-8')
         ok, _ = print_pdf(src, pdf)
-        return count_pdf(pdf.read_bytes())[0] if ok and pdf.is_file() else None
+        if not (ok and pdf.is_file()): return None
+        data = pdf.read_bytes()
+        images, pages = count_pdf(data)
+        # Only a complete PDF is a measurement: a header, at least one page and an end-of-file marker. A truncated file would
+        # read as "the logo adds nothing", which is the unsafe direction.
+        if not data.startswith(b'%PDF-') or pages < 1 or b'%%EOF' not in data[-1024:]: return None
+        return images
     finally:
         shutil.rmtree(d, ignore_errors=True)
 

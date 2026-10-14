@@ -716,6 +716,12 @@ class RealPdfWithBrand(ExportCase):
         brand = self.logo_brand("logo.png", img.png())
         with mock.patch.object(EX, "print_pdf", return_value=(False, "no chrome")):
             self.assertIsNone(EX.measure_logo_images(brand, "R", "2026-10-14"))
+        # A print that "succeeds" but leaves a truncated or page-less PDF is not a measurement either.
+        for junk in (b"%PDF-1.7\n", b"%PDF-1.7\n1 0 obj << /Type /Page >> endobj\n", b"not a pdf %%EOF"):
+            def fake_print(src, out, junk=junk):
+                Path(out).write_bytes(junk); return True, ""
+            with mock.patch.object(EX, "print_pdf", side_effect=fake_print):
+                self.assertIsNone(EX.measure_logo_images(brand, "R", "2026-10-14"), junk)
         self.make()
         err = io.StringIO()
         with mock.patch.object(EX, "measure_logo_images", return_value=None), contextlib.redirect_stderr(err), \
