@@ -393,6 +393,28 @@ class ExportCase(BrandCase):
         return data.decode("utf-8")
 
 
+class FirstRunHint(ExportCase):
+    def test_an_unbranded_export_says_how_to_add_a_brand_once(self):
+        env = {k: v for k, v in os.environ.items() if k != "QA_BRAND"}
+        r, _ = self.export(env=env)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.count("note: no brand set"), 1)
+        self.assertIn("brand-example/README.md", r.stdout)
+
+    def test_no_hint_with_a_brand_or_with_no_brand(self):
+        self.make()
+        r, _ = self.export("--brand", self.brand)
+        self.assertNotIn("no brand set", r.stdout)
+        r, _ = self.export("--no-brand")
+        self.assertNotIn("no brand set", r.stdout)
+
+    def test_a_branded_page_fills_the_sheet_and_keeps_headings_in_ink(self):
+        self.make()
+        page = self.page("--brand", self.brand)
+        self.assertRegex(page, r"@page \{ background: #[0-9a-fA-F]{3,6}; \}")
+        self.assertIn("h1, h2, h3, h4 { color: var(--ink); }", page)
+
+
 class HtmlWithBrand(ExportCase):
     def test_without_a_brand_the_page_is_exactly_the_plain_page(self):
         text = (self.run_dir / "report.md").read_text(encoding="utf-8")

@@ -4,7 +4,14 @@ All notable changes to this project are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): a change that alters what an installed skill
 tells an agent to do is at least a minor version.
 
-## 1.1.0 - unreleased
+## 1.1.1 - 2026-10-14
+
+- A branded report's paper colour now fills the whole printed page, headings stay in the
+  ink colour and section headings get a thin accent rule.
+- An unbranded export prints a one-line note on how to add a brand.
+- The agent install guide offers branding as its own step.
+
+## 1.1.0 - 2026-10-14
 
 - Brand packs: a folder outside the toolkit holding a brand's name, colours, logo, fonts,
   cover, footer and report voice. Brands cannot add their own stylesheet, so nothing a brand

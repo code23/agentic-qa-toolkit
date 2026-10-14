@@ -33,10 +33,15 @@ Follow these steps in order. Do not skip the dry run.
    works and what it may not do.
 7. **Remaining setup.** Read `editions/<edition>/README.md` and tell the person what is left
    for them: for `hosted-bot`, the webhook and its key; for `dedicated-mac`, the worker Mac.
-   Do not do those steps unless asked. If the person's team has its own report brand, point
-   them to `docs/branding.md`: the brand is a folder outside the toolkit, and `QA_BRAND`
-   points at it. Do not create or edit a brand unless asked.
-8. **Finish** by telling the person how to start: "Ask me to use qa-standards to QA a flow
+   Do not do those steps unless asked.
+8. **Offer branding.** Ask once: "Do you want exported reports to carry your own logo,
+   colours and fonts?" If no, reports use the neutral look and nothing more is needed. If
+   yes, follow `docs/branding.md` with them: copy `skills/qa-standards/brand-example/` to a
+   folder of their choice outside the toolkit, help them fill in `brand.json` and replace the
+   logo, run `brand_check.py` on it, and tell them the line to add to their shell profile
+   (`export QA_BRAND=/path/to/their-brand`). Do not edit their shell profile yourself unless
+   they ask.
+9. **Finish** by telling the person how to start: "Ask me to use qa-standards to QA a flow
    on a URL."
 
 Do not, as part of installing:

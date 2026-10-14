@@ -158,15 +158,18 @@ def css_string(text):
 
 BRAND_CSS = """
 :root { --accent: %(accent)s; --ink: %(ink)s; --muted: %(muted)s; --paper: %(paper)s; }
+html { background: var(--paper); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { color: var(--ink); background: var(--paper); }
-h1, h2, h3, h4 { color: var(--accent); }
+h1, h2, h3, h4 { color: var(--ink); }
+h2 { border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
 a { color: var(--accent); }
 th { border-color: var(--muted); }
 td { border-color: var(--muted); }
 figcaption, blockquote { color: var(--muted); }
 .cover { break-after: page; page-break-after: always; min-height: 240mm; display: flex; flex-direction: column; justify-content: center; }
 .cover .brand-logo { max-height: 28mm; max-width: 70mm; width: auto; height: auto; border: 0; margin-bottom: 24mm; }
-.cover .cover-title { font-size: 30px; line-height: 1.2; font-weight: 700; color: var(--accent); margin: 0 0 8px; }
+.cover .cover-title { font-size: 30px; line-height: 1.2; font-weight: 700; color: var(--ink); margin: 0 0 8px; }
+.cover .cover-brand { border-top: 2px solid var(--accent); padding-top: 12px; }
 .cover .cover-brand { font-size: 16px; margin: 0; }
 .cover .cover-date { color: var(--muted); margin: 4px 0 24px; }
 .cover dl { margin: 0; } .cover dt { color: var(--muted); font-size: 12px; margin-top: 10px; } .cover dd { margin: 0; }
@@ -182,6 +185,8 @@ def brand_stylesheet(brand):
     brand.json values. The only stylesheet in an export is ours plus this."""
     colours = {**BRAND_DEFAULTS, **brand['colours']}
     css = BRAND_CSS % colours
+    # The page box, margins included, takes the paper colour; the root background alone stops at the margins in print.
+    css += f'@page {{ background: {colours["paper"]}; }}\n'
     seen = {}
     for f in brand['fonts']:
         key = (f['family'], f['ext'], hashlib.sha1(f['data']).hexdigest())
@@ -461,6 +466,9 @@ def main(argv=None):
         print(f'report_export: Chrome/Chromium not found or not executable at {CHROME}. Install Chrome or set CHROME_PATH.', file=sys.stderr); return 2
     brand_dir = None if a.no_brand else (a.brand or os.environ.get('QA_BRAND') or None)
     brand = None
+    if not brand_dir and not a.no_brand:
+        print('note: no brand set, so the report uses the neutral look. To add your logo, colours and fonts, see brand-example/README.md '
+              'in the qa-standards skill, then set QA_BRAND (or pass --no-brand to silence this).')
     if brand_dir:
         try:
             bres = brand_check.check_brand(brand_dir)
