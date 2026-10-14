@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the QA toolkit packages: the shared skills plus one edition's files each.
+"""Build the Agentic QA Toolkit packages: the shared skills plus one edition's files each.
 
     python3 tools/build.py                  build every edition into dist/
     python3 tools/build.py --edition local  build one edition
@@ -156,7 +156,7 @@ def write_zip(dest, name, out_dir):
 
 def main():
     names = sorted(p.name for p in EDITIONS.iterdir() if p.is_dir())
-    ap = argparse.ArgumentParser(description="Build the shareable QA toolkit packages.")
+    ap = argparse.ArgumentParser(description="Build the shareable Agentic QA Toolkit packages.")
     ap.add_argument("--edition", choices=names + ["all"], default="all")
     ap.add_argument("--out", default=str(ROOT / "dist"))
     ap.add_argument("--check", action="store_true", help="stage and scan only; write no zip")
@@ -164,7 +164,7 @@ def main():
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     failed = False
     for edition in (names if a.edition == "all" else [a.edition]):
-        name = f"qa-toolkit-{edition}-{version}"
+        name = f"agentic-qa-toolkit-{edition}-{version}"
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / name
             dest.mkdir()

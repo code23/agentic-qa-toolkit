@@ -15,7 +15,7 @@ except ImportError as _e:
     print(f'needs python packages: requests, beautifulsoup4, lxml (missing: {getattr(_e, "name", None) or "unknown"})', file=sys.stderr)
     sys.exit(2)
 
-UA = 'Mozilla/5.0 (X11; Linux x86_64) Chrome/130 Safari/537.36 qa-toolkit-audit (read-only)'
+UA = 'Mozilla/5.0 (X11; Linux x86_64) Chrome/130 Safari/537.36 agentic-qa-toolkit-audit (read-only)'
 MAX_BYTES = 5_000_000
 MAX_REDIRECTS = 5
 REDIRECT_CODES = (301, 302, 303, 307, 308)

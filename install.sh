@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the QA toolkit skills for one edition into an agent's skills folder.
+# Install the Agentic QA Toolkit skills for one edition into an agent's skills folder.
 #
 #   ./install.sh --edition local --target ~/.claude/skills            # show what would happen
 #   ./install.sh --edition local --target ~/.claude/skills --apply    # do it
@@ -52,7 +52,7 @@ case "/$TARGET/" in */../*) fail "--target must not contain '..'; give the folde
 VERSION="$(cat "$HERE/VERSION" 2>/dev/null || echo unknown)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
-echo "QA toolkit $VERSION, edition: $EDITION"
+echo "Agentic QA Toolkit $VERSION, edition: $EDITION"
 echo "Target: $TARGET"
 [ "$APPLY" -eq 1 ] || echo "Dry run: nothing will be written. Add --apply to install."
 echo

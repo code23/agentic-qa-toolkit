@@ -1,4 +1,4 @@
-# QA toolkit
+# Agentic QA Toolkit
 
 Skills and scripts that let a coding agent do website QA the way a senior tester would:
 plan the run, test in a real browser, keep evidence, rate what it finds on a fixed scale and
@@ -39,7 +39,7 @@ the longer comparison.
 Paste this to your coding agent:
 
 ```text
-Install the QA toolkit from https://github.com/code23/qa-toolkit for me.
+Install the Agentic QA Toolkit from https://github.com/code23/agentic-qa-toolkit for me.
 Clone it, read AGENTS.md in the repository and follow its install steps.
 I want the Local edition. Show me the dry run before you apply anything.
 ```
@@ -52,8 +52,8 @@ read first.
 ### Or run it yourself
 
 ```bash
-git clone https://github.com/code23/qa-toolkit.git
-cd qa-toolkit
+git clone https://github.com/code23/agentic-qa-toolkit.git
+cd agentic-qa-toolkit
 ./install.sh --edition local --target ~/.claude/skills            # shows what it would do
 ./install.sh --edition local --target ~/.claude/skills --apply    # installs
 ```

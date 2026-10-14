@@ -1,4 +1,4 @@
-# QA toolkit: hosted QA bot edition
+# Agentic QA Toolkit: hosted QA bot edition
 
 QA run by a bot on a hosted machine. A coding agent or a person sends a URL and a short brief;
 the bot tests it with its own browser and reports back in its chat. Use this edition for

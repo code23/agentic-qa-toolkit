@@ -1,5 +1,5 @@
 {
-  "name": "qa-toolkit-node-tests",
+  "name": "agentic-qa-toolkit-node-tests",
   "private": true,
   "description": "Offline tests for the qa-site-audit headless-browser scripts, run against the fictional demo site.",
   "engines": {

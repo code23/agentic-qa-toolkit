@@ -95,7 +95,7 @@ class FetchPage(unittest.TestCase):
         self.assertEqual(rec["status"], 200)
         method, path, headers, _ = s.requests[0]
         self.assertEqual(method, "GET")
-        self.assertIn("qa-toolkit-audit", headers["User-Agent"])
+        self.assertIn("agentic-qa-toolkit-audit", headers["User-Agent"])
         self.assertNotIn("Authorization", headers)
         self.assertNotIn("Cookie", headers)
 

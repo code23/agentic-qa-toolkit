@@ -62,7 +62,7 @@ purpose. Its README lists each fault and which script finds it.
 ```bash
 python3 demo-site/serve.py --port 8765 &
 mkdir -p /tmp/qa-demo && cd /tmp/qa-demo
-S=/path/to/qa-toolkit/skills/qa-site-audit/scripts
+S=/path/to/agentic-qa-toolkit/skills/qa-site-audit/scripts
 
 node $S/viewport_overflow.js http://127.0.0.1:8765/ --out evidence/overflow.json
 node $S/consent_capture.js   http://127.0.0.1:8765/ --out evidence/consent.json

@@ -99,7 +99,7 @@ describe('demo-site/serve.py', { skip: python ? false : 'python3 not found' }, (
   });
   it('does not serve files from outside the demo folder', async () => {
     const r = await get('/../tests/node/package.json');
-    assert.ok(r.status !== 200 || !r.body.includes('qa-toolkit-node-tests'), `status ${r.status}`);
+    assert.ok(r.status !== 200 || !r.body.includes('agentic-qa-toolkit-node-tests'), `status ${r.status}`);
   });
   it('rejects an out-of-range or non-numeric --port with exit 2, and --help exits 0', () => {
     assert.equal(spawnSync(python, [path.join(SITE, 'serve.py'), '--port', '70000']).status, 2);

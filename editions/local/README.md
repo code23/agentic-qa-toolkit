@@ -1,4 +1,4 @@
-# QA toolkit: local edition
+# Agentic QA Toolkit: local edition
 
 QA on your own machine, on demand. Your coding agent drives a browser itself and reports what
 it found. Nothing is sent anywhere. Use this edition for quick checks while you build,

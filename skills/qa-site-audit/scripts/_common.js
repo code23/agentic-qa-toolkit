@@ -5,7 +5,7 @@
 // Exit codes for every script: 0 = all URLs done, 1 = partial failure (results still written), 2 = usage/dependency error.
 const fs = require('fs'); const os = require('os'); const path = require('path'); const crypto = require('crypto');
 const CHROME = process.env.CHROME_PATH || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome');
-const UA_TAG = 'qa-toolkit-audit (read-only)';
+const UA_TAG = 'agentic-qa-toolkit-audit (read-only)';
 const FETCH_UA = 'Mozilla/5.0 (X11; Linux x86_64) Chrome/130 Safari/537.36 ' + UA_TAG;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // Consent container identification (consent_capture.js findControl; viewport_overflow.js consent-bar exclusion).

@@ -1,4 +1,4 @@
-# QA toolkit: dedicated QA Mac edition
+# Agentic QA Toolkit: dedicated QA Mac edition
 
 Real-browser QA on a dedicated Mac. Your coding agent (the lead) plans the run and judges the
 evidence. A separate Mac (the worker) drives a visible Chrome window and sends back
