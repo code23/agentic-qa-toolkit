@@ -16,8 +16,9 @@ Embedded images are read from the PARSED document (python-markdown, the same par
 inside inline code, fenced or indented code blocks, or with an escaped `!` is text, not an image.
 
 How far an image file is validated (the limit, stated plainly):
-  PNG            decoded in full with the standard library: chunk checksums, then the pixel stream is decompressed (with a size
-                 cap) and its length and row filter bytes are checked against the header. Interlaced (Adam7) PNGs are supported.
+  PNG            with the standard library: chunk checksums, a palette of 1-256 entries where one is required, then the pixel
+                 stream is decompressed (with a size cap) and its length and row filter bytes are checked against the header.
+                 Interlaced (Adam7) PNGs are supported. Pixel values and palette colours are not interpreted.
   JPEG, GIF, WebP  structural checks only (JPEG: frame header with a size, scan data, end marker; GIF: image block with data,
                  trailer; WebP: RIFF size, an image chunk with a valid frame header). This does NOT prove the image decodes.
                  report_export.py --pdf goes further: it asks Chrome to load every image before printing (Chrome's own decoder must
@@ -90,7 +91,9 @@ def _png_error(d):
         if zlib.crc32(d[pos + 4:pos + 8 + ln]) & 0xffffffff != struct.unpack('>I', d[end - 4:end])[0]:
             return f'PNG is damaged (bad checksum in the {kind.decode("latin-1")} chunk)'
         if kind == b'IDAT': idat.append(d[pos + 8:pos + 8 + ln])
-        plte = plte or kind == b'PLTE'
+        if kind == b'PLTE':
+            if ln == 0 or ln % 3 or ln // 3 > 256: return 'PNG palette (PLTE) is empty or malformed'
+            plte = True
         pos = end
         if kind == b'IEND': iend = True; break
     if not iend: return 'PNG is truncated (no IEND chunk)'
@@ -201,7 +204,7 @@ def _webp_error(d):
     return None if found else 'WebP has no image chunk with data (VP8, VP8L or animation frame)'
 
 
-STRUCTURAL_ONLY = ('PNG files are decoded in full. JPEG, GIF and WebP are checked structurally only: that does not prove the image '
+STRUCTURAL_ONLY = ('PNG pixel data is decompressed and checked against the header. JPEG, GIF and WebP are checked structurally only: that does not prove the image '
                    'decodes (report_export.py --pdf asks Chrome to load every image before printing).')
 
 

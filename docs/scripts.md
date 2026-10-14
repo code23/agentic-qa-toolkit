@@ -10,7 +10,7 @@ screenshots travel with it.
 
 | Script | What it does |
 |---|---|
-| `report_check.py` | Fails a report that mentions a screenshot without embedding it, embeds a file that is missing, sits outside the report's folder or is not a sound image file (a PNG is decoded in full; JPEG, GIF and WebP are checked structurally only), or has a finding whose evidence image is not shown in the report |
+| `report_check.py` | Fails a report that mentions a screenshot without embedding it, embeds a file that is missing, sits outside the report's folder or is not a sound image file (a PNG's checksums, palette and decompressed pixel stream are checked against its header; JPEG, GIF and WebP are checked structurally only; neither proves the picture looks right), or has a finding whose evidence image is not shown in the report |
 | `report_export.py` | Writes one self-contained HTML file with every image inside it, prints it to PDF with Chrome, and verifies the PDF contains the images. Before printing, Chrome loads every image and the export stops if one will not load. Raw HTML in the report is neutralised and the export loads nothing from the network |
 
 ```bash

@@ -93,5 +93,8 @@ TRUNCATED = {
     "png-pixel-stream-too-long": png_from_raw(4, 4, b"\x00" * (4 * 13 + 1)),
     "png-invalid-row-filter": png_from_raw(4, 4, (b"\x09" + b"\x00" * 12) * 4),
     "png-palette-without-plte": png_from_raw(4, 4, (b"\x00" + b"\x00" * 4) * 4, ctype=3),
+    # Review regression: an indexed PNG whose PLTE chunk is empty has no usable palette.
+    "png-empty-plte": (lambda png: png[:33] + _chunk(b"PLTE", b"") + png[33:])(   # 33 = signature + IHDR
+        png_from_raw(4, 4, (b"\x00" + b"\x00" * 4) * 4, ctype=3)),
     "webp-no-image-chunk": b"RIFF\x0c\x00\x00\x00WEBPJUNK\x00\x00\x00\x00",
 }

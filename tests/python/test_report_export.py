@@ -452,6 +452,20 @@ class RealPdf(Export):
         self.assertIn('cannot be loaded by Chrome: image 2 ("Broken")', r.stdout)
         self.assertFalse(out.exists())
 
+    def test_review_regression_a_repeated_undecodable_image_counts_once_under_allow_missing(self):
+        # One good PNG plus the same undecodable WebP embedded twice: two distinct images, one of them bad. The PDF must
+        # still be required to contain the good one (target 1, not 0).
+        import struct
+        payload = b"\x2f" + b"\xff" * 60
+        chunk = b"VP8L" + struct.pack("<I", len(payload)) + payload
+        self.shot("bad.webp", data=b"RIFF" + struct.pack("<I", 4 + len(chunk)) + b"WEBP" + chunk)
+        self.write("![Fine](screenshots/home.png)\n\n![Broken](screenshots/bad.webp)\n\n![Broken again](screenshots/bad.webp)\n")
+        out = self.root / "rep.pdf"
+        r = self.cli(self.run / "report.md", "--pdf", out, "--allow-missing")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("2 embedded image(s) cannot be loaded by Chrome", r.stdout)
+        self.assertRegex(r.stdout, r"\b1 images verified")
+
     def test_why_counting_pdf_image_objects_alone_is_not_a_decode_check(self):
         # Evidence for the probe: Chrome draws a broken-image icon for an undecodable image, and that icon is an image object.
         import struct

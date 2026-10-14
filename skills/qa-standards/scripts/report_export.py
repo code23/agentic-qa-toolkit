@@ -15,7 +15,8 @@ throwaway profile folder, then VERIFIES the PDF: it exists, starts with %PDF, an
 (/Subtype /Image, not counting soft masks that belong to a transparent image) as there are distinct images actually inlined. A failed verification keeps the file and exits 1.
 With only --pdf, the HTML is built in a temporary folder that is removed afterwards.
 
-Image validation (the limit): PNG files are decoded in full by the checker. JPEG, GIF and WebP get structural checks only, which do
+Image validation (the limit): for a PNG the checker verifies chunk checksums and decompresses the pixel stream, checking its
+length and row filter bytes against the header; it does not interpret pixels or palette colours. JPEG, GIF and WebP get structural checks only, which do
 not prove the image decodes; an HTML-only export says so. --pdf is the stronger check: before printing, Chrome is asked to load
 every image of a throwaway copy of the page (its own decoder must accept the file and report a size; damage deep inside the pixel
 data can still get through). A PDF image count alone is not proof, because Chrome draws a broken-image icon, itself an image
@@ -307,7 +308,9 @@ def main(argv=None):
         if non_png and not a.pdf:
             print(f'note: {non_png} JPEG/GIF/WebP image(s) were checked structurally only, not decoded; a --pdf export has Chrome load them.')
         if a.pdf:
-            figures = [alt for _, alt in report_check.parsed_images_of_html(page)]
+            parsed = report_check.parsed_images_of_html(page)
+            figures = [alt for _, alt in parsed]
+            figures_src = [src for src, _ in parsed]
             ok, bad, err = probe_decode(page)
             if not ok:
                 print(f'PDF export stopped: {err}', file=sys.stderr); return 1
@@ -317,7 +320,9 @@ def main(argv=None):
                 if not a.allow_missing:
                     print('Not exporting a PDF. Replace the files, or pass --allow-missing to export without them counted.')
                     return 1
-                distinct = max(0, distinct - len({k for k in bad}))
+                # Count failures per distinct image, as rend.inlined does: the same file embedded twice is one image.
+                failed = {figures_src[k] for k in bad if k < len(figures_src)}
+                distinct = max(0, distinct - len(failed))
             ok, err = print_pdf(html_path, a.pdf)
             if not ok:
                 print(f'PDF export failed: {err}', file=sys.stderr); return 1

@@ -290,14 +290,14 @@ class StructuralValidation(RunFolder):
 
     def test_the_limit_is_stated_in_help_and_in_the_output_for_non_png_images(self):
         h = self.cli("--help").stdout
-        self.assertIn("PNG            decoded in full", h)
+        self.assertIn("Pixel values and palette colours are not interpreted", h)
         self.assertIn("structural checks only", h)
         self.assertIn("does NOT prove the image decodes", h)
         self.shot("a.jpg", img.JPEG)
         p = self.report("![A photo](screenshots/a.jpg)\n")
         r = self.cli(p)
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertIn("note: PNG files are decoded in full. JPEG, GIF and WebP are checked structurally only: that does not prove the image decodes", r.stdout)
+        self.assertIn("note: PNG pixel data is decompressed and checked against the header. JPEG, GIF and WebP are checked structurally only: that does not prove the image decodes", r.stdout)
         self.assertTrue(r.stdout.endswith("1 images embedded, 0 problems\n"))
         self.assertEqual(self.cli(p, "--strict").returncode, 0)   # the statement is not a problem
 
