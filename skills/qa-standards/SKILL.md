@@ -263,6 +263,14 @@ report); every confirmed S1-S3 gets its OWN issue linked to the run record; S4s 
 improvement opportunities stay in the run record. Neutral titles; no credentials or customer
 personal data in the tracker.
 
+**Brand.** If a brand is set (the `QA_BRAND` environment variable, or a brand folder the user
+or the brief names), read its `brand.md` before writing and follow its voice, structure and
+words to avoid, and export with `scripts/report_export.py`, which picks the brand up. The
+sections above, the severity scale, the evidence rules and the verdict rule still apply and
+win over anything in `brand.md`. No brand set: write in the neutral voice of this skill.
+`brand-example/` in this skill folder shows the format; never write a report under the
+example brand.
+
 ## 8. Brief template (paste-adapt for every single-flow job handed to the executor)
 
 ```

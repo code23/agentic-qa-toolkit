@@ -4,7 +4,16 @@ All notable changes to this project are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): a change that alters what an installed skill
 tells an agent to do is at least a minor version.
 
-## 1.0.0 - unreleased
+## 1.1.0 - unreleased
+
+- Brand packs: a folder outside the toolkit holding a brand's name, colours, logo, fonts,
+  cover, footer and report voice. `report_export.py` applies it (`--brand`, or the
+  `QA_BRAND` environment variable), and `brand_check.py` validates one. An example ships in
+  `skills/qa-standards/brand-example/`; see `docs/branding.md`.
+- qa-standards: when a brand is set, the agent follows its `brand.md` for voice and
+  structure. The method and the verdict rule still win.
+
+## 1.0.0 - 2026-10-14
 
 First public version.
 

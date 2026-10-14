@@ -22,15 +22,22 @@ every image of a throwaway copy of the page (its own decoder must accept the fil
 data can still get through). A PDF image count alone is not proof, because Chrome draws a broken-image icon, itself an image
 object, for a file it cannot load. An image Chrome cannot load stops the PDF unless --allow-missing.
 
+Brand pack (optional): --brand DIR, else the QA_BRAND environment variable; --no-brand ignores both. See brand_check.py for the folder
+layout and brand.json schema, which is validated first (a bad pack refuses the export). A brand adds a cover page (logo, the
+report's first H1, brand name, date, cover fields, or cover.md), colours and fonts from the pack, report.css, and a footer on every
+PDF page. Brand files are inlined as data: URIs; the logo is an <img>, so an SVG logo cannot run script or load anything. Without a
+brand the output is exactly what it is without this feature. --date YYYY-MM-DD sets the cover date (default: today).
+
 Needs the `markdown` package (see requirements.txt). Never overwrites the source report.
 Exit: 0 done, 1 refused or verification failed, 2 usage error or missing dependency / Chrome.
 """
-import argparse, base64, hashlib, html, os, re, shutil, subprocess, sys, tempfile, time
+import argparse, base64, datetime, hashlib, html, os, re, shutil, subprocess, sys, tempfile, time
 from html.parser import HTMLParser
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import report_check
+import brand_check
 
 CSP = "default-src 'none'; img-src data:; style-src 'unsafe-inline'"
 CHROME = os.environ.get('CHROME_PATH') or ('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' if sys.platform == 'darwin' else '/usr/bin/google-chrome')
@@ -139,17 +146,101 @@ class Renderer:
         return f'<{tag}>{inner}</{tag}>'
 
 
-def build_html(report_text, images):
+def md_escape(text):
+    """Markdown-escape a value so it renders as literal text."""
+    return re.sub(r'([\\`*_{}\[\]()>#+\-.!])', r'\\\1', re.sub(r'\s+', ' ', text))
+
+
+def css_string(text):
+    """text as the inside of a CSS string literal: everything but letters, digits, space and basic punctuation is hex-escaped."""
+    return ''.join(c if (c.isalnum() and c.isascii()) or c in ' .,-_:/()&' else f'\\{ord(c):x} ' for c in text)
+
+
+BRAND_CSS = """
+:root { --accent: %(accent)s; --ink: %(ink)s; --muted: %(muted)s; --paper: %(paper)s; }
+body { color: var(--ink); background: var(--paper); }
+h1, h2, h3, h4 { color: var(--accent); }
+a { color: var(--accent); }
+th { border-color: var(--muted); }
+td { border-color: var(--muted); }
+figcaption, blockquote { color: var(--muted); }
+.cover { break-after: page; page-break-after: always; min-height: 240mm; display: flex; flex-direction: column; justify-content: center; }
+.cover .brand-logo { max-height: 28mm; max-width: 70mm; width: auto; height: auto; border: 0; margin-bottom: 24mm; }
+.cover .cover-title { font-size: 30px; line-height: 1.2; font-weight: 700; color: var(--accent); margin: 0 0 8px; }
+.cover .cover-brand { font-size: 16px; margin: 0; }
+.cover .cover-date { color: var(--muted); margin: 4px 0 24px; }
+.cover dl { margin: 0; } .cover dt { color: var(--muted); font-size: 12px; margin-top: 10px; } .cover dd { margin: 0; }
+.brand-footer { font-size: 10px; color: var(--muted); text-align: center; margin-top: 24px; }
+@media print { .brand-footer { display: none; } }
+"""
+FONT_STACK = '-apple-system, Helvetica, Arial, sans-serif'   # the report's own font stack (see CSS body rule)
+BRAND_DEFAULTS = {'accent': '#1b1f24', 'ink': '#1b1f24', 'muted': '#4a5056', 'paper': '#ffffff'}
+
+
+def brand_stylesheet(brand):
+    """(css, needs_font_src) for a validated brand: colour variables, font-face rules, cover/footer styling, then report.css last."""
+    colours = {**BRAND_DEFAULTS, **brand['colours']}
+    css = BRAND_CSS % colours
+    seen = {}
+    for f in brand['fonts']:
+        key = (f['family'], f['ext'], hashlib.sha1(f['data']).hexdigest())
+        if key in seen: continue
+        seen[key] = True
+        uri = f"data:{brand_check.FONT_MIME[f['ext']]};base64,{base64.b64encode(f['data']).decode('ascii')}"
+        css += f'@font-face {{ font-family: "{css_string(f["family"])}"; src: url({uri}) format("{brand_check.FONT_FORMAT[f["ext"]]}"); font-display: block; }}\n'
+    fams = {f['role']: f['family'] for f in brand['fonts']}
+    if brand['footer']:   # printed in the page margin: the margin box does not inherit the body font, so it is set here
+        stack = (f'"{css_string(fams["body"])}", ' if 'body' in fams else '') + FONT_STACK
+        css += f'@page {{ @bottom-center {{ content: "{css_string(brand["footer"])}"; font-family: {stack}; font-size: 9px; color: {colours["muted"]}; }} }}\n'
+    if 'body' in fams: css += f'body {{ font-family: "{css_string(fams["body"])}", {FONT_STACK}; }}\n'
+    if 'heading' in fams: css += f'h1, h2, h3, h4, .cover .cover-title {{ font-family: "{css_string(fams["heading"])}", {FONT_STACK}; }}\n'
+    if brand['css']: css += brand['css'] + '\n'
+    return css, bool(brand['fonts']) or bool(brand['css'] and re.search(r'@font-face', brand['css'], re.I))
+
+
+def cover_html(brand, title, date):
+    """The cover page: logo, then either cover.md (placeholders substituted as escaped text, rendered through the safe pipeline)
+    or the default layout. Report screenshots are <figure><img>; nothing here is, so the load probe and PDF image target ignore it."""
+    out = ['<section class="cover">']
+    if brand['logo']:
+        uri = f"data:{brand['logo']['mime']};base64,{base64.b64encode(brand['logo']['data']).decode('ascii')}"
+        out.append(f'<img class="brand-logo" src="{uri}" alt="{esc(brand["name"])} logo">')
+    values = {'title': title, 'date': date, 'brand': brand['name'], **{k: brand['cover'].get(k, '') for k in brand_check.COVER_KEYS}}
+    if brand['cover_md'] is not None:
+        text = re.sub(r'\{(' + '|'.join(brand_check.PLACEHOLDERS) + r')\}', lambda m: md_escape(values[m.group(1)]), brand['cover_md'])
+        out.append(Renderer({}).render(parse_html(report_check.render_markdown(text))))
+    else:
+        out.append(f'<p class="cover-title">{esc(title)}</p>\n<p class="cover-brand">{esc(brand["name"])}</p>\n<p class="cover-date">{esc(date)}</p>')
+        rows = [(label, brand['cover'][k]) for k, label in (('prepared_by', 'Prepared by'), ('contact', 'Contact'), ('confidentiality', 'Confidentiality')) if brand['cover'].get(k)]
+        if rows: out.append('<dl class="cover-fields">' + ''.join(f'<dt>{label}</dt><dd>{esc(v)}</dd>' for label, v in rows) + '</dl>')
+    out.append('</section>')
+    return '\n'.join(out)
+
+
+def first_h1(report_text):
+    m = re.search(r'^#\s+(.+?)\s*#*\s*$', report_text, re.M)
+    return re.sub(r'[`*_]', '', m.group(1)) if m else 'QA report'
+
+
+def build_html(report_text, images, brand=None, date=None):
     """(html_text, renderer). Raw HTML in the source is escaped; only allow-listed elements survive. The renderer reports how many
-    figures were inlined (renderer.figures), how many were replaced by unavailable boxes and the distinct inlined images."""
+    figures were inlined (renderer.figures), how many were replaced by unavailable boxes and the distinct inlined images.
+    With a validated brand (brand_check.check_brand(...).brand) the page gets a cover, the brand's colours, fonts and report.css,
+    and a footer; without one the output is unchanged."""
     r = Renderer(images)
     body = r.render(parse_html(report_check.render_markdown(report_text)))
-    m = re.search(r'^#\s+(.+?)\s*#*\s*$', report_text, re.M)
-    title = esc(re.sub(r'[`*_]', '', m.group(1))) if m else 'QA report'
+    title = esc(first_h1(report_text))
+    csp, css = CSP, CSS
+    if brand:
+        extra, fonts = brand_stylesheet(brand)
+        css += extra
+        if fonts: csp = CSP.replace("img-src data:;", "img-src data:; font-src data:;")
+        body = cover_html(brand, first_h1(report_text), date or str(datetime.date.today())) + '\n' + body
+        if brand['footer']: body += f'\n<footer class="brand-footer">{esc(brand["footer"])}</footer>'
     page = (f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8">\n'
-            f'<meta http-equiv="Content-Security-Policy" content="{CSP}">\n'
+            f'<meta http-equiv="Content-Security-Policy" content="{csp}">\n'
             f'<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>{title}</title>\n'
-            f'<style>{CSS}</style></head>\n<body>\n{body}\n</body></html>\n')
+            f'<style>{css}</style></head>\n<body>\n{body}\n</body></html>\n')
     return page, r
 
 
@@ -177,6 +268,27 @@ def verify_pdf(path, expected_images):
     if found < expected_images:
         return False, f'PDF verification failed: expected at least {expected_images} image objects, found {found}', found
     return True, f'{found} image objects found, {expected_images} expected', found
+
+
+FOOTER_MIN_CHROME = 131   # CSS page margin boxes (@page { @bottom-center }) need Chrome 131 or later
+_chrome_major = []
+
+
+def parse_chrome_major(text):
+    """Major version from `chrome --version` output ('Google Chrome 155.0.8059.40', 'Chromium 120.0.6099.109 built on Debian'), or None."""
+    m = re.search(r'(\d+)\.\d+\.\d+\.\d+', text or '')
+    return int(m.group(1)) if m else None
+
+
+def chrome_major_version():
+    """Chrome's major version, asked once per run; None when it cannot be determined."""
+    if not _chrome_major:
+        try:
+            out = subprocess.run([CHROME, '--version'], capture_output=True, text=True, timeout=15).stdout
+        except (OSError, subprocess.SubprocessError):
+            out = ''
+        _chrome_major.append(parse_chrome_major(out))
+    return _chrome_major[0]
 
 
 def run_chrome(args, url, ready, stdout_to=None, limit=180):
@@ -227,15 +339,29 @@ def print_pdf(html_path, pdf_path):
     return (True, '') if fresh() else (False, f'Chrome exited with status {rc} and wrote no PDF')
 
 
-PROBE_SCRIPT = ("<script>window.addEventListener('load',function(){var bad=[];Array.prototype.forEach.call(document.images,function(i,n){"
-                "if(!(i.complete&&i.naturalWidth>0&&i.naturalHeight>0))bad.push(n)});document.title='DECODE:'+bad.join(',')+':END'})</script>")
+PROBE_SCRIPT = ("<script>window.addEventListener('load',function(){var bad=[];Array.prototype.forEach.call(document.querySelectorAll('figure img'),"
+                "function(i,n){if(!(i.complete&&i.naturalWidth>0&&i.naturalHeight>0))bad.push(n)});"
+                "document.title='DECODE:'+bad.join(',')+':END'})</script>")
+CSP_META = re.compile(r'(<meta http-equiv="Content-Security-Policy" content=")[^"]*(")')
+
+
+def report_figures(page):
+    """[(src, alt)] of each report screenshot (<figure><img>), in order. Brand images (the cover logo) are not figures and are not listed."""
+    out = []
+
+    def walk(n, in_fig=False):
+        if isinstance(n, str): return
+        if n.tag == 'img' and in_fig: out.append((n.attrs.get('src', ''), n.attrs.get('alt', '')))
+        for c in n.children: walk(c, in_fig or n.tag == 'figure')
+    walk(parse_html(page))
+    return out
 
 
 def probe_decode(page):
     """Ask Chrome to load every image of the page (a throwaway copy of it with one inline script; the deliverable has none).
     Returns (ok, bad_figure_indexes, error). Chrome draws a broken-image icon for an image it cannot load, and a PDF then still
     holds an image object, so counting PDF image objects alone cannot prove a screenshot loaded: this probe can."""
-    probe = page.replace(CSP, "default-src 'none'; img-src data:; script-src 'unsafe-inline'").replace('</body>', PROBE_SCRIPT + '</body>')
+    probe = CSP_META.sub(r"\g<1>default-src 'none'; img-src data:; font-src data:; script-src 'unsafe-inline'\g<2>", page).replace('</body>', PROBE_SCRIPT + '</body>')
     d = tempfile.mkdtemp(prefix='qa-export-probe-')
     try:
         src, dump = Path(d) / 'probe.html', Path(d) / 'dom.txt'
@@ -260,7 +386,14 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('report'); ap.add_argument('--html'); ap.add_argument('--pdf')
     ap.add_argument('--allow-missing', action='store_true', help='export even if an embedded image is missing or invalid')
+    ap.add_argument('--brand', metavar='DIR', help='brand pack folder (default: $QA_BRAND if set); see brand_check.py')
+    ap.add_argument('--no-brand', action='store_true', help='ignore --brand and $QA_BRAND')
+    ap.add_argument('--date', metavar='YYYY-MM-DD', help='date shown on the cover (default: today)')
     a = ap.parse_args(argv)
+    if a.brand and a.no_brand: ap.error('--brand and --no-brand together make no sense')
+    if a.date:
+        try: datetime.date.fromisoformat(a.date)
+        except ValueError: ap.error('--date must be YYYY-MM-DD')
     try:
         import markdown  # noqa: F401
     except ImportError:
@@ -275,6 +408,18 @@ def main(argv=None):
         print('report_export: an output path would overwrite the report or the other output', file=sys.stderr); return 2
     if a.pdf and not (os.path.isfile(CHROME) and os.access(CHROME, os.X_OK)):
         print(f'report_export: Chrome/Chromium not found or not executable at {CHROME}. Install Chrome or set CHROME_PATH.', file=sys.stderr); return 2
+    brand_dir = None if a.no_brand else (a.brand or os.environ.get('QA_BRAND') or None)
+    brand = None
+    if brand_dir:
+        try:
+            bres = brand_check.check_brand(brand_dir)
+        except NotADirectoryError:
+            print(f'report_export: brand folder {brand_dir} is not a folder', file=sys.stderr); return 2
+        for p in bres.problems: print(f'brand: {p}')
+        if bres.problems:
+            print(f'refusing to export: the brand pack has {len(bres.problems)} problem(s). Run brand_check.py on it, or use --no-brand.')
+            return 1
+        brand = bres.brand
     try:
         res = report_check.check(report)
     except (OSError, UnicodeDecodeError) as e:
@@ -286,7 +431,7 @@ def main(argv=None):
         print(f'refusing to export: {len(blocking)} embedded image problem(s). Fix them, or pass --allow-missing to export with "image unavailable" boxes.')
         return 1
     images = {e['src']: {'path': e['path'], 'mime': e['mime']} for e in res.embedded if e['path']}
-    page, rend = build_html(report.read_text(encoding='utf-8'), images)
+    page, rend = build_html(report.read_text(encoding='utf-8'), images, brand, a.date)
     validated = sum(1 for e in res.embedded if e['path'])
     non_png = sum(1 for e in res.embedded if e['path'] and e['mime'] != 'image/png')
     distinct = len(rend.inlined)
@@ -308,7 +453,11 @@ def main(argv=None):
         if non_png and not a.pdf:
             print(f'note: {non_png} JPEG/GIF/WebP image(s) were checked structurally only, not decoded; a --pdf export has Chrome load them.')
         if a.pdf:
-            parsed = report_check.parsed_images_of_html(page)
+            if brand and brand['footer']:
+                major = chrome_major_version()
+                if major is not None and major < FOOTER_MIN_CHROME:
+                    print(f'note: Chrome {major} is older than {FOOTER_MIN_CHROME}: the brand footer will be missing from the PDF (page margin boxes need Chrome {FOOTER_MIN_CHROME} or later).')
+            parsed = report_figures(page)   # report screenshots only: the cover logo is not a figure
             figures = [alt for _, alt in parsed]
             figures_src = [src for src, _ in parsed]
             ok, bad, err = probe_decode(page)

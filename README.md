@@ -113,6 +113,7 @@ AGENTS.md        what an AI agent should do when asked to install or change this
 - [Choosing an edition](docs/choosing-an-edition.md)
 - [How a run works](docs/how-a-run-works.md)
 - [The check scripts](docs/scripts.md)
+- [Branding your reports](docs/branding.md)
 - [Responsible use](docs/responsible-use.md)
 - [Maintaining and releasing](docs/maintaining.md)
 

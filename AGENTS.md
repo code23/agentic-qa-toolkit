@@ -33,7 +33,9 @@ Follow these steps in order. Do not skip the dry run.
    works and what it may not do.
 7. **Remaining setup.** Read `editions/<edition>/README.md` and tell the person what is left
    for them: for `hosted-bot`, the webhook and its key; for `dedicated-mac`, the worker Mac.
-   Do not do those steps unless asked.
+   Do not do those steps unless asked. If the person's team has its own report brand, point
+   them to `docs/branding.md`: the brand is a folder outside the toolkit, and `QA_BRAND`
+   points at it. Do not create or edit a brand unless asked.
 8. **Finish** by telling the person how to start: "Ask me to use qa-standards to QA a flow
    on a URL."
 

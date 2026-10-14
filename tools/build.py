@@ -26,7 +26,8 @@ ROOT = Path(__file__).resolve().parent.parent
 CORE = ROOT / "skills"
 EDITIONS = ROOT / "editions"
 SKILLS = ("qa-standards", "qa-site-audit", "qa-release")
-TEXT_SUFFIXES = {".md", ".py", ".js", ".ts", ".json", ".csv", ".txt", ".sh", ".template", ".plist", ""}
+# .svg is XML text, so the leak scan reads it like any other text file.
+TEXT_SUFFIXES = {".md", ".py", ".js", ".ts", ".json", ".csv", ".txt", ".sh", ".template", ".plist", ".svg", ""}
 # Past-run artefacts and build debris never belong in a package.
 BAD_NAMES = re.compile(r"(__pycache__|\.pyc$|\.DS_Store$|(^|/)findings\.json$|(^|/)regression\.(md|json)$|"
                        r"RESULT\.md$|\.(png|jpe?g|gif|webp|pdf|zip|tgz|har|log)$)", re.I)

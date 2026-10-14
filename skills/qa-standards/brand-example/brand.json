@@ -1,0 +1,16 @@
+{
+  "name": "Example Agency",
+  "colours": {
+    "accent": "#2f5bea",
+    "ink": "#161a23",
+    "muted": "#5b6372",
+    "paper": "#ffffff"
+  },
+  "logo": "logo.svg",
+  "cover": {
+    "prepared_by": "Example Agency QA team",
+    "contact": "qa@example.com",
+    "confidentiality": "Prepared for the client named on this report. Not for wider circulation."
+  },
+  "footer": "Example Agency · QA report"
+}
