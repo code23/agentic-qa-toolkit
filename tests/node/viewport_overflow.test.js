@@ -17,6 +17,8 @@ describe('viewport_overflow.js on the demo site', { skip: NO_CHROME }, () => {
     const list = Array.isArray(urls) ? urls.join(',') : urls;
     const r = await runScript('viewport_overflow.js', [list, '--out', out, ...args], { cwd: tmp });
     runs[name] = { ...r, json: fs.existsSync(out) ? readJson(out) : null, out };
+    // A run that wrote nothing is otherwise silent: show what the script printed, so a failure on a slow CI machine says why.
+    if (!fs.existsSync(out)) console.error(`[viewport_overflow] scenario "${name}" wrote no output (exit ${r.code})\n--- stdout tail ---\n${r.stdout.slice(-1500)}\n--- stderr tail ---\n${r.stderr.slice(-1500)}`);
   };
 
   before(async () => {

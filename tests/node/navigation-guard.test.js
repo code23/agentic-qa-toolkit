@@ -17,6 +17,8 @@ describe('navigation guard', { skip: NO_CHROME }, () => {
     const out = path.join(tmp, `${name}.json`);
     const r = await runScript(script, [`http://127.0.0.1:${mainPort}${page}`, '--out', out, '--delay', '500', ...args], { cwd: tmp });
     runs[name] = { ...r, json: fs.existsSync(out) ? readJson(out) : null };
+    // A run that wrote nothing is otherwise silent: show what the script printed, so a failure on a slow CI machine says why.
+    if (!fs.existsSync(out)) console.error(`[navigation-guard] scenario "${name}" wrote no output (exit ${r.code})\n--- stdout tail ---\n${r.stdout.slice(-1500)}\n--- stderr tail ---\n${r.stderr.slice(-1500)}`);
   };
 
   before(async () => {
