@@ -4,6 +4,11 @@ All notable changes to this project are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/): a change that alters what an installed skill
 tells an agent to do is at least a minor version.
 
+## 1.1.2 - 2026-10-15
+
+- The worker setup probe checks the example.com tab title instead of the page heading, which
+  example.com has changed. The probe failed on every worker until this fix.
+
 ## 1.1.1 - 2026-10-14
 
 - A branded report's paper colour now fills the whole printed page, headings stay in the

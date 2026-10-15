@@ -48,7 +48,7 @@ cp $rec "${args[0]}" "${args[1]}"
 """
 
 GOOD = {"status": "completed",
-        "observations": [{"check": "heading", "observed": "Example Domain", "as_expected": True, "evidence": ["example-home.png"]},
+        "observations": [{"check": "tab title", "observed": "Example Domain", "as_expected": True, "evidence": ["example-home.png"]},
                          {"check": "link", "observed": "present", "as_expected": True, "evidence": []}],
         "blockers": [], "evidence": ["example-home.png"]}
 
