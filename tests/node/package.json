@@ -9,6 +9,6 @@
     "test": "node run-tests.js"
   },
   "devDependencies": {
-    "puppeteer-core": "25.13.0"
+    "puppeteer-core": "25.16.0"
   }
 }
